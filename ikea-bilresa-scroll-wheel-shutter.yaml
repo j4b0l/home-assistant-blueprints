@@ -1,0 +1,459 @@
+blueprint:
+  name: Ikea_bilresa_scroll_wheel_shutter
+  description: |
+      Blueprint for Ikea Bilresa Matter (button and scroll wheel for 3 shutter channels)
+      Scroll wheel controls shutter position (right = open, left = close)
+      Version: 2026-04-15
+  domain: automation
+
+  # input selectors
+  input:
+    remote:
+      name: Remote
+      description: "Ikea Bilresa scroll wheel remote control"
+      selector:
+        device:
+          filter:
+            manufacturer: IKEA of Sweden
+            model: BILRESA scroll wheel
+            integration: matter
+
+    # input selectors: channel 1
+    channel1_section:
+      name: Channel 1
+      collapsed: true
+      input:
+        shutter_entity_ch1:
+          name: "Channel 1: Shutter entity"
+          description: "Cover/shutter entity to be controlled by scroll wheel"
+          selector:
+            entity:
+              filter:
+                domain:
+                - cover
+          default:
+        click_action_ch1:
+          name: "Channel 1: <click> action"
+          default: []
+          selector:
+            action: {}
+        double_click_action_ch1:
+          name: "Channel 1: <double-click> action"
+          default: []
+          selector:
+            action: {}
+        long_click_action_ch1:
+          name: "Channel 1: <long-click> action"
+          default: []
+          selector:
+            action: {}
+
+    # input selectors: channel 2
+    channel2_section:
+      name: Channel 2
+      collapsed: true
+      input:
+        shutter_entity_ch2:
+          name: "Channel 2: Shutter entity"
+          description: "Cover/shutter entity to be controlled by scroll wheel"
+          selector:
+            entity:
+              filter:
+                domain:
+                - cover
+          default:
+        click_action_ch2:
+          name: "Channel 2: <click> action"
+          default: []
+          selector:
+            action: {}
+        double_click_action_ch2:
+          name: "Channel 2: <double-click> action"
+          default: []
+          selector:
+            action: {}
+        long_click_action_ch2:
+          name: "Channel 2: <long-click> action"
+          default: []
+          selector:
+            action: {}
+
+    # input selectors: channel 3
+    channel3_section:
+      name: Channel 3
+      collapsed: true
+      input:
+        shutter_entity_ch3:
+          name: "Channel 3: Shutter entity"
+          description: "Cover/shutter entity to be controlled by scroll wheel"
+          selector:
+            entity:
+              filter:
+                domain:
+                - cover
+          default:
+        click_action_ch3:
+          name: "Channel 3: <click> action"
+          default: []
+          selector:
+            action: {}
+        double_click_action_ch3:
+          name: "Channel 3: <double-click> action"
+          default: []
+          selector:
+            action: {}
+        long_click_action_ch3:
+          name: "Channel 3: <long-click> action"
+          default: []
+          selector:
+            action: {}
+
+    # input selectors: global settings
+    global_shutter_setting:
+      name: Shutter settings
+      collapsed: true
+      input:
+        shutter_step_pct:
+          name: Shutter step percentage
+          description: "Change in shutter position per scroll wheel step in %"
+          default: 10
+          selector:
+            number:
+              mode: box
+              min: 1
+              max: 100
+
+    global_misc_setting:
+      name: Miscellaneous settings
+      collapsed: true
+      input:
+        scroll_wheel_mode_ext:
+          selector:
+            select:
+              options:
+                - "relaxed"
+                - "instant"
+          default: "relaxed"
+          name: "Scroll wheel evaluation mode"
+          description: |
+            <relaxed>: one action call after scrolling
+            <instant>: many action calls while scrolling
+
+            Beware:
+            for <instant> mode the 9 hidden sensor entities of Bilresa device have to be enabled
+        max_queued_automation_calls:
+          name: Max queued automation calls
+          description: |
+            Increase if you want to queue more automation calls for special cases
+          default: 10
+          selector:
+            number:
+              mode: box
+              step: 1
+
+
+# automation logic
+alias: Ikea_bilresa_scroll_wheel_shutter
+trigger:
+  - event_type: state_changed
+    event_data:
+      entity_id: "{{ var_button_ch1 }}"
+    trigger: event
+    id: button_ch1
+  - event_type: state_changed
+    event_data:
+      entity_id: "{{ var_scroll_left_ch1 }}"
+    trigger: event
+    id: scroll_left_ch1
+  - event_type: state_changed
+    event_data:
+      entity_id: "{{ var_scroll_right_ch1 }}"
+    trigger: event
+    id: scroll_right_ch1
+  - event_type: state_changed
+    event_data:
+      entity_id: "{{ var_scroll_left_ext_ch1 }}"
+    trigger: event
+    id: scroll_left_ext_ch1
+  - event_type: state_changed
+    event_data:
+      entity_id: "{{ var_scroll_right_ext_ch1 }}"
+    trigger: event
+    id: scroll_right_ext_ch1
+
+  - event_type: state_changed
+    event_data:
+      entity_id: "{{ var_button_ch2 }}"
+    trigger: event
+    id: button_ch2
+  - event_type: state_changed
+    event_data:
+      entity_id: "{{ var_scroll_left_ch2 }}"
+    trigger: event
+    id: scroll_left_ch2
+  - event_type: state_changed
+    event_data:
+      entity_id: "{{ var_scroll_right_ch2 }}"
+    trigger: event
+    id: scroll_right_ch2
+  - event_type: state_changed
+    event_data:
+      entity_id: "{{ var_scroll_left_ext_ch2 }}"
+    trigger: event
+    id: scroll_left_ext_ch2
+  - event_type: state_changed
+    event_data:
+      entity_id: "{{ var_scroll_right_ext_ch2 }}"
+    trigger: event
+    id: scroll_right_ext_ch2
+
+  - event_type: state_changed
+    event_data:
+      entity_id: "{{ var_button_ch3 }}"
+    trigger: event
+    id: button_ch3
+  - event_type: state_changed
+    event_data:
+      entity_id: "{{ var_scroll_left_ch3 }}"
+    trigger: event
+    id: scroll_left_ch3
+  - event_type: state_changed
+    event_data:
+      entity_id: "{{ var_scroll_right_ch3 }}"
+    trigger: event
+    id: scroll_right_ch3
+  - event_type: state_changed
+    event_data:
+      entity_id: "{{ var_scroll_left_ext_ch3 }}"
+    trigger: event
+    id: scroll_left_ext_ch3
+  - event_type: state_changed
+    event_data:
+      entity_id: "{{ var_scroll_right_ext_ch3 }}"
+    trigger: event
+    id: scroll_right_ext_ch3
+
+
+condition:
+  - condition: template
+    value_template: >-
+      {{ trigger.event.data.old_state.state != 'unavailable'
+         and trigger.event.data.new_state.state != 'unavailable'
+      }}
+action:
+  - variables:
+      channel: >-
+        {% if trigger.id in ['button_ch1', 'scroll_left_ch1', 'scroll_right_ch1', 'scroll_left_ext_ch1', 'scroll_right_ext_ch1'] %}
+          ch1
+        {% elif trigger.id in ['button_ch2', 'scroll_left_ch2', 'scroll_right_ch2', 'scroll_left_ext_ch2', 'scroll_right_ext_ch2'] %}
+          ch2
+        {% elif trigger.id in ['button_ch3', 'scroll_left_ch3', 'scroll_right_ch3', 'scroll_left_ext_ch3', 'scroll_right_ext_ch3'] %}
+          ch3
+        {% endif %}
+  - choose:
+      # button click
+      - conditions:
+          - condition: template
+            value_template: >
+              {{ trigger.id == ('button_' ~ channel) and trigger.event.data.new_state.attributes.event_type ==
+              'multi_press_1' }}
+        sequence:
+          - if: "{{ channel == 'ch1'}}"
+            then:
+              !input click_action_ch1
+          - if: "{{ channel == 'ch2'}}"
+            then:
+              !input click_action_ch2
+          - if: "{{ channel == 'ch3'}}"
+            then:
+              !input click_action_ch3
+      # button double-click
+      - conditions:
+          - condition: template
+            value_template: >
+              {{ trigger.id == ('button_' ~ channel) and trigger.event.data.new_state.attributes.event_type ==
+              'multi_press_2' }}
+        sequence:
+          - if: "{{ channel == 'ch1'}}"
+            then:
+              !input double_click_action_ch1
+          - if: "{{ channel == 'ch2'}}"
+            then:
+              !input double_click_action_ch2
+          - if: "{{ channel == 'ch3'}}"
+            then:
+              !input double_click_action_ch3
+      # button long-press
+      - conditions:
+          - condition: template
+            value_template: >
+              {{ trigger.id == ('button_' ~ channel) and trigger.event.data.new_state.attributes.event_type ==
+              'long_press' }}
+        sequence:
+          - if: "{{ channel == 'ch1'}}"
+            then:
+              !input long_click_action_ch1
+          - if: "{{ channel == 'ch2'}}"
+            then:
+              !input long_click_action_ch2
+          - if: "{{ channel == 'ch3'}}"
+            then:
+              !input long_click_action_ch3
+      # scroll wheel actions: shutter position control
+      - conditions:
+          - condition: template
+            value_template: >
+              {{ ( (var_scroll_wheel_mode_ext == 'relaxed') and (trigger.id == ('scroll_left_' ~ channel) or trigger.id == ('scroll_right_' ~ channel))) or
+                 ( (var_scroll_wheel_mode_ext == 'instant') and (trigger.id == ('scroll_left_ext_' ~ channel) or trigger.id == ('scroll_right_ext_' ~ channel)) and trigger.event.data.new_state.state == '1' )
+              }}
+        sequence:
+          - variables:
+              scroll_clicks: >
+                {% if (var_scroll_wheel_mode_ext == 'relaxed') %}
+                  {{ trigger.event.data.new_state.attributes.totalNumberOfPressesCounted }}
+                {% else %}
+                  1
+                {% endif %}
+              scroll_direction: >
+                {% if (trigger.id == 'scroll_left_' ~ channel) or (trigger.id == 'scroll_left_ext_' ~ channel)%}
+                  left
+                {% else %}
+                  right
+                {% endif %}
+              shutter_entity: "{{ vars['shutter_entity_' ~ channel] }}"
+          - if:
+              - condition: template
+                value_template: "{{ shutter_entity not in [none, '', 'None'] }}"
+            then:
+              - variables:
+                  current_position: "{{ state_attr(shutter_entity, 'current_position') | int(0) }}"
+                  new_position: >-
+                    {{ [[current_position + iif(scroll_direction == 'right', 1, -1) * scroll_clicks|int * var_shutter_step_pct, 100] | min, 0] | max }}
+              - action: cover.set_cover_position
+                target:
+                  entity_id: "{{ shutter_entity }}"
+                data:
+                  position: "{{ new_position }}"
+
+
+mode: queued
+max: !input max_queued_automation_calls
+max_exceeded: silent
+variables:
+  vars: {'shutter_entity_ch1': !input shutter_entity_ch1, 'shutter_entity_ch2': !input shutter_entity_ch2, 'shutter_entity_ch3': !input shutter_entity_ch3}
+
+  var_shutter_step_pct: !input shutter_step_pct
+  var_scroll_wheel_mode_ext: !input scroll_wheel_mode_ext
+
+
+trigger_variables:
+  var_remote: !input remote
+
+  # get all event names from device_id only
+  var_button_ch1: >-
+    {% for item in device_entities(var_remote) %}
+    {% set match = item | regex_findall(find='^event\..+[a-zA-Z]_3.*$') %}
+    {% if (match | length) > 0 %}
+      {{ match[0] }}
+    {% endif %}
+    {% endfor %}
+  var_scroll_left_ch1: >-
+    {% for item in device_entities(var_remote) %}
+    {% set match = item | regex_findall(find='^event\..+[a-zA-Z]_2.*$') %}
+    {% if (match | length) > 0 %}
+      {{ match[0] }}
+    {% endif %}
+    {% endfor %}
+  var_scroll_right_ch1: >-
+    {% for item in device_entities(var_remote) %}
+    {% set match = item | regex_findall(find='^event\..+[a-zA-Z]_1.*$') %}
+    {% if (match | length) > 0 %}
+      {{ match[0] }}
+    {% endif %}
+    {% endfor %}
+  var_scroll_left_ext_ch1: >-
+    {% for item in device_entities(var_remote) %}
+    {% set match = item | regex_findall(find='^sensor\..+[a-zA-Z]_2.*$') %}
+    {% if (match | length) > 0 %}
+      {{ match[0] }}
+    {% endif %}
+    {% endfor %}
+  var_scroll_right_ext_ch1: >-
+    {% for item in device_entities(var_remote) %}
+    {% set match = item | regex_findall(find='^sensor\..+[a-zA-Z]_1.*$') %}
+    {% if (match | length) > 0 %}
+      {{ match[0] }}
+    {% endif %}
+    {% endfor %}
+
+  var_button_ch2: >-
+    {% for item in device_entities(var_remote) %}
+    {% set match = item | regex_findall(find='^event\..+[a-zA-Z]_6.*$') %}
+    {% if (match | length) > 0 %}
+      {{ match[0] }}
+    {% endif %}
+    {% endfor %}
+  var_scroll_left_ch2: >-
+    {% for item in device_entities(var_remote) %}
+    {% set match = item | regex_findall(find='^event\..+[a-zA-Z]_5.*$') %}
+    {% if (match | length) > 0 %}
+      {{ match[0] }}
+    {% endif %}
+    {% endfor %}
+  var_scroll_right_ch2: >-
+    {% for item in device_entities(var_remote) %}
+    {% set match = item | regex_findall(find='^event\..+[a-zA-Z]_4.*$') %}
+    {% if (match | length) > 0 %}
+      {{ match[0] }}
+    {% endif %}
+    {% endfor %}
+  var_scroll_left_ext_ch2: >-
+    {% for item in device_entities(var_remote) %}
+    {% set match = item | regex_findall(find='^sensor\..+[a-zA-Z]_5.*$') %}
+    {% if (match | length) > 0 %}
+      {{ match[0] }}
+    {% endif %}
+    {% endfor %}
+  var_scroll_right_ext_ch2: >-
+    {% for item in device_entities(var_remote) %}
+    {% set match = item | regex_findall(find='^sensor\..+[a-zA-Z]_4.*$') %}
+    {% if (match | length) > 0 %}
+      {{ match[0] }}
+    {% endif %}
+    {% endfor %}
+
+  var_button_ch3: >-
+    {% for item in device_entities(var_remote) %}
+    {% set match = item | regex_findall(find='^event\..+[a-zA-Z]_9.*$') %}
+    {% if (match | length) > 0 %}
+      {{ match[0] }}
+    {% endif %}
+    {% endfor %}
+  var_scroll_left_ch3: >-
+    {% for item in device_entities(var_remote) %}
+    {% set match = item | regex_findall(find='^event\..+[a-zA-Z]_8.*$') %}
+    {% if (match | length) > 0 %}
+      {{ match[0] }}
+    {% endif %}
+    {% endfor %}
+  var_scroll_right_ch3: >-
+    {% for item in device_entities(var_remote) %}
+    {% set match = item | regex_findall(find='^event\..+[a-zA-Z]_7.*$') %}
+    {% if (match | length) > 0 %}
+      {{ match[0] }}
+    {% endif %}
+    {% endfor %}
+  var_scroll_left_ext_ch3: >-
+    {% for item in device_entities(var_remote) %}
+    {% set match = item | regex_findall(find='^sensor\..+[a-zA-Z]_8.*$') %}
+    {% if (match | length) > 0 %}
+      {{ match[0] }}
+    {% endif %}
+    {% endfor %}
+  var_scroll_right_ext_ch3: >-
+    {% for item in device_entities(var_remote) %}
+    {% set match = item | regex_findall(find='^sensor\..+[a-zA-Z]_7.*$') %}
+    {% if (match | length) > 0 %}
+      {{ match[0] }}
+    {% endif %}
+    {% endfor %}
