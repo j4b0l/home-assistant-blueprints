@@ -1,0 +1,330 @@
+blueprint:
+  name: Sun Azimuth Cover Control
+  description: |
+    Position covers automatically based on the sun's azimuth.
+
+    Each of the four facades (north / south / east / west) is assigned a target
+    cover position depending on where the sun currently is relative to that
+    facade, using four zones:
+
+      - none            sun is not on the facade
+      - indirect-early  sun just started grazing the facade (rising side)
+      - direct          sun shines straight onto the facade
+      - indirect-late   sun is about to leave the facade (setting side)
+
+    Zone boundaries per facade (facing = cardinal direction + building offset):
+      |az - facing|  <  45   -> direct
+        45 .. 90  before      -> indirect-early
+        45 .. 90  after       -> indirect-late
+      otherwise               -> none
+
+    The sun sweeps a full 360 degrees over the day; sun-based positioning is
+    only applied while the current time is inside the configured schedule
+    window (which may span midnight).
+
+    Outside the window: if "close fully at night" is enabled, every configured
+    cover is driven to the night position (fully closed by default); otherwise
+    nothing moves and covers keep whatever position they had.
+
+    A cover is only commanded when its current position actually differs from
+    the target, to avoid needless motor movement.
+
+    An optional guard stops the automation completely (no sun positioning and
+    no night close): either a single boolean entity (e.g. an "out of home"
+    helper) or an advanced "disable when" condition where any matching
+    condition halts the run - build an OR group for cases like
+    "out of home OR vacation".
+
+    Position convention follows Home Assistant: 100 = fully open, 0 = fully
+    closed. Covers must support set_cover_position. All configured covers are
+    re-evaluated on every azimuth change and every few minutes.
+
+    Version: 2026-07-01
+  domain: automation
+
+  input:
+    sun_section:
+      name: Sun & building
+      icon: mdi:weather-sunny
+      input:
+        azimuth_entity:
+          name: Sun azimuth entity
+          description: >
+            Entity whose numeric state is the sun azimuth in degrees (0-360).
+            For the built-in Sun integration use the "sensor.sun_solar_azimuth"
+            sensor (enable it if needed) - the sun.sun entity itself exposes
+            azimuth only as an attribute and cannot be used here directly.
+          selector:
+            entity:
+              filter:
+                domain:
+                  - sensor
+                  - input_number
+        building_offset:
+          name: Building offset
+          description: >
+            Rotation of the building away from the true north-south / east-west
+            axes, in degrees. Positive rotates the reference directions
+            clockwise. Range -45 to +45.
+          default: 0
+          selector:
+            number:
+              min: -45
+              max: 45
+              step: 1
+              unit_of_measurement: "°"
+              mode: slider
+
+    groups_section:
+      name: Cover groups
+      icon: mdi:window-shutter
+      description: One cover group per facade. Any group may be left empty.
+      input:
+        covers_north:
+          name: North covers
+          default: []
+          selector:
+            entity:
+              multiple: true
+              filter:
+                domain: cover
+        covers_east:
+          name: East covers
+          default: []
+          selector:
+            entity:
+              multiple: true
+              filter:
+                domain: cover
+        covers_south:
+          name: South covers
+          default: []
+          selector:
+            entity:
+              multiple: true
+              filter:
+                domain: cover
+        covers_west:
+          name: West covers
+          default: []
+          selector:
+            entity:
+              multiple: true
+              filter:
+                domain: cover
+
+    positions_section:
+      name: Target positions
+      icon: mdi:arrow-up-down
+      description: >
+        Cover position (0 = closed, 100 = open) for each sun zone.
+      input:
+        pct_none:
+          name: None (sun not on facade)
+          default: 100
+          selector:
+            number:
+              min: 0
+              max: 100
+              step: 1
+              unit_of_measurement: "%"
+              mode: slider
+        pct_indirect_early:
+          name: Indirect - early (sun just arriving)
+          default: 70
+          selector:
+            number:
+              min: 0
+              max: 100
+              step: 1
+              unit_of_measurement: "%"
+              mode: slider
+        pct_direct:
+          name: Direct (sun straight on facade)
+          default: 30
+          selector:
+            number:
+              min: 0
+              max: 100
+              step: 1
+              unit_of_measurement: "%"
+              mode: slider
+        pct_indirect_late:
+          name: Indirect - late (sun about to leave)
+          default: 70
+          selector:
+            number:
+              min: 0
+              max: 100
+              step: 1
+              unit_of_measurement: "%"
+              mode: slider
+
+    schedule_section:
+      name: Schedule
+      icon: mdi:clock-outline
+      description: >
+        Covers are only moved between these two times. The window may cross
+        midnight (start later than end).
+      input:
+        start_time:
+          name: Allowed from
+          default: "08:00:00"
+          selector:
+            time: {}
+        end_time:
+          name: Allowed until
+          default: "20:00:00"
+          selector:
+            time: {}
+        night_close_enabled:
+          name: Close fully at night
+          description: >
+            When enabled, all configured covers are driven to the night
+            position while the current time is OUTSIDE the allowed window.
+            When disabled, covers are left untouched outside the window.
+          default: false
+          selector:
+            boolean: {}
+        night_close_position:
+          name: Night position
+          description: >
+            Cover position used outside the window when "Close fully at night"
+            is enabled (0 = fully closed, 100 = fully open).
+          default: 0
+          selector:
+            number:
+              min: 0
+              max: 100
+              step: 1
+              unit_of_measurement: "%"
+              mode: slider
+
+    guard_section:
+      name: Disable / guard
+      icon: mdi:cancel
+      description: >
+        Optional conditions that stop the automation completely (no sun
+        positioning and no night close).
+      input:
+        disable_boolean:
+          name: Disable entity
+          description: >
+            Optional boolean-like entity (input_boolean, binary_sensor, ...).
+            While its state is "on" the automation does nothing. Leave empty
+            to not use it.
+          default:
+          selector:
+            entity:
+              filter:
+                - domain: input_boolean
+                - domain: binary_sensor
+                - domain: switch
+        disable_condition:
+          name: Disable when (advanced)
+          description: >
+            Optional condition(s). If ANY of them is true the automation stops.
+            For "out of home OR vacation" add both state conditions here (each
+            is checked independently). Leave empty to not use it.
+          default: []
+          selector:
+            condition: {}
+
+# Derived per-instance values and the list of cover commands to apply.
+variables:
+  azimuth_entity: !input azimuth_entity
+  building_offset: !input building_offset
+  covers_north: !input covers_north
+  covers_east: !input covers_east
+  covers_south: !input covers_south
+  covers_west: !input covers_west
+  pct_none: !input pct_none
+  pct_indirect_early: !input pct_indirect_early
+  pct_direct: !input pct_direct
+  pct_indirect_late: !input pct_indirect_late
+  start_time: !input start_time
+  end_time: !input end_time
+  night_close_enabled: !input night_close_enabled
+  night_close_position: !input night_close_position
+  disable_boolean: !input disable_boolean
+  # commands: [{entity_id, position}, ...] to apply this run.
+  #   - inside the schedule window -> sun-azimuth based positions
+  #   - outside the window + night close -> night position for every cover
+  #   - otherwise -> empty (nothing moves)
+  commands: >
+    {% set now_t = now().strftime('%H:%M:%S') %}
+    {% set in_window = (start_time <= now_t < end_time) if start_time <= end_time
+                       else (now_t >= start_time or now_t < end_time) %}
+    {% set all_covers = covers_north + covers_east + covers_south + covers_west %}
+    {% set ns = namespace(items=[]) %}
+    {% if in_window and (states(azimuth_entity) | is_number) %}
+      {% set az = states(azimuth_entity) | float(0) %}
+      {% set off = building_offset | float(0) %}
+      {% set groups = [
+        {'covers': covers_north, 'facing': (0   + off) % 360},
+        {'covers': covers_east,  'facing': (90  + off) % 360},
+        {'covers': covers_south, 'facing': (180 + off) % 360},
+        {'covers': covers_west,  'facing': (270 + off) % 360}] %}
+      {% for g in groups %}
+        {% set d = ((az - g.facing + 180) % 360) - 180 %}
+        {% if d >= -45 and d < 45 %}
+          {% set pos = pct_direct %}
+        {% elif d >= -90 and d < -45 %}
+          {% set pos = pct_indirect_early %}
+        {% elif d >= 45 and d < 90 %}
+          {% set pos = pct_indirect_late %}
+        {% else %}
+          {% set pos = pct_none %}
+        {% endif %}
+        {% for cv in g.covers %}
+          {% set ns.items = ns.items + [{'entity_id': cv, 'position': pos | int}] %}
+        {% endfor %}
+      {% endfor %}
+    {% elif (not in_window) and night_close_enabled %}
+      {% for cv in all_covers %}
+        {% set ns.items = ns.items + [{'entity_id': cv, 'position': night_close_position | int}] %}
+      {% endfor %}
+    {% endif %}
+    {{ ns.items }}
+
+trigger:
+  - platform: state
+    entity_id: !input azimuth_entity
+  - platform: time_pattern
+    minutes: "/5"
+  - platform: time
+    at: !input start_time
+  - platform: time
+    at: !input end_time
+  - platform: homeassistant
+    event: start
+
+condition:
+  # Guard: stop entirely while the disable entity is on.
+  - condition: template
+    value_template: "{{ disable_boolean == none or not is_state(disable_boolean, 'on') }}"
+  # Guard: stop entirely if ANY of the advanced "disable when" conditions is true.
+  - condition: not
+    conditions: !input disable_condition
+
+action:
+  - repeat:
+      for_each: "{{ commands }}"
+      sequence:
+        - variables:
+            e: "{{ repeat.item.entity_id }}"
+            target_pos: "{{ repeat.item.position | int }}"
+            current: "{{ state_attr(repeat.item.entity_id, 'current_position') }}"
+        # Only move a cover whose position actually differs from the target.
+        - if:
+            - condition: template
+              value_template: "{{ current is none or (current | int(-1)) != target_pos }}"
+          then:
+            - service: cover.set_cover_position
+              target:
+                entity_id: "{{ e }}"
+              data:
+                position: "{{ target_pos }}"
+
+mode: queued
+max: 10
