@@ -201,6 +201,12 @@ The summary lists each low medicine, e.g.:
   once a medicine is already at/над its last day).
 - Decrementing happens **only** on the daily time trigger — there is no
   Home Assistant-start trigger, so restarts do not double-count.
+- Notifications are sent via the `notify.mobile_app_<device>` service, derived
+  from each selected device's **original** name (`notify.mobile_app_` +
+  slugified device name). This is how the companion app registers the service,
+  and it keeps working even if you rename the device in Home Assistant. If a
+  device was renamed *inside the companion app itself*, re-select it after the
+  service name updates.
 
 ### Inputs
 

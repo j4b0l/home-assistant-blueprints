@@ -410,11 +410,14 @@ action:
       - repeat:
           for_each: !input notify_devices
           sequence:
-            # mobile_app device notify action; device_id templated per target.
-            - domain: mobile_app
-              type: notify
-              device_id: "{{ repeat.item }}"
-              title: !input notify_title
-              message: "{{ summary }}"
+            # Device actions reject a templated device_id, so call the
+            # mobile_app notify service built from the device's (original)
+            # name instead. This is what the companion app registers as
+            # notify.mobile_app_<slugified device name>.
+            - service: >-
+                notify.mobile_app_{{ device_attr(repeat.item, 'name') | slugify }}
+              data:
+                title: !input notify_title
+                message: "{{ summary }}"
 
 mode: single
