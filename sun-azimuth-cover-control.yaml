@@ -18,13 +18,19 @@ blueprint:
         45 .. 90  after       -> indirect-late
       otherwise               -> none
 
-    The sun sweeps a full 360 degrees over the day; sun-based positioning is
-    only applied while the current time is inside the configured schedule
-    window (which may span midnight).
+    The sun sweeps a full 360 degrees over the day. Sun-azimuth positioning is
+    applied while the sun is above the horizon (from the elevation entity) and
+    inside the active window. The active window is either a fixed time window
+    (which may span midnight) or, when "use sunrise/sunset" is enabled, exactly
+    sunrise-to-sunset.
 
-    Outside the window: if "close fully at night" is enabled, every configured
-    cover is driven to the night position (fully closed by default); otherwise
-    nothing moves and covers keep whatever position they had.
+    In time-window mode, while the sun is still below the horizon:
+      - between the start time and sunrise -> morning position (all covers)
+      - between sunset and the end time    -> evening position (all covers)
+
+    Outside the active window: if "close fully at night" is enabled, every
+    configured cover is driven to the night position (fully closed by default);
+    otherwise nothing moves and covers keep whatever position they had.
 
     A cover is only commanded when its current position actually differs from
     the target, to avoid needless motor movement.
@@ -54,6 +60,20 @@ blueprint:
             For the built-in Sun integration use the "sensor.sun_solar_azimuth"
             sensor (enable it if needed) - the sun.sun entity itself exposes
             azimuth only as an attribute and cannot be used here directly.
+          selector:
+            entity:
+              filter:
+                domain:
+                  - sensor
+                  - input_number
+        elevation_entity:
+          name: Sun elevation entity
+          description: >
+            Entity whose numeric state is the sun elevation in degrees.
+            Positive = sun above the horizon (daytime), negative = below.
+            For the built-in Sun integration use the
+            "sensor.sun_solar_elevation" sensor. Used to detect sunrise/sunset
+            and the morning/evening twilight phases.
           selector:
             entity:
               filter:
@@ -164,19 +184,58 @@ blueprint:
       name: Schedule
       icon: mdi:clock-outline
       description: >
-        Covers are only moved between these two times. The window may cross
-        midnight (start later than end).
+        When the covers are allowed to move. Either a fixed time window, or -
+        with the toggle below - the sunrise/sunset window derived from the sun
+        elevation.
       input:
+        use_sun_times:
+          name: Use sunrise/sunset instead of the time window
+          description: >
+            When enabled the time window below is ignored and covers are only
+            controlled while the sun is above the horizon (sunrise to sunset).
+            The morning/evening positions are then unused.
+          default: false
+          selector:
+            boolean: {}
         start_time:
           name: Allowed from
+          description: Start of the time window (ignored when the toggle above is on).
           default: "08:00:00"
           selector:
             time: {}
         end_time:
           name: Allowed until
+          description: End of the time window (ignored when the toggle above is on).
           default: "20:00:00"
           selector:
             time: {}
+        morning_position:
+          name: Morning position (before sunrise)
+          description: >
+            Position for all covers between the start time and sunrise (while
+            the sun is still below the horizon in the morning). Time-window
+            mode only.
+          default: 100
+          selector:
+            number:
+              min: 0
+              max: 100
+              step: 1
+              unit_of_measurement: "%"
+              mode: slider
+        evening_position:
+          name: Evening position (after sunset)
+          description: >
+            Position for all covers between sunset and the end time (while the
+            sun is below the horizon in the evening). Time-window mode only.
+          default: 100
+          selector:
+            number:
+              min: 0
+              max: 100
+              step: 1
+              unit_of_measurement: "%"
+              mode: slider
         night_close_enabled:
           name: Close fully at night
           description: >
@@ -233,6 +292,7 @@ blueprint:
 # Derived per-instance values and the list of cover commands to apply.
 variables:
   azimuth_entity: !input azimuth_entity
+  elevation_entity: !input elevation_entity
   building_offset: !input building_offset
   covers_north: !input covers_north
   covers_east: !input covers_east
@@ -244,20 +304,51 @@ variables:
   pct_indirect_late: !input pct_indirect_late
   start_time: !input start_time
   end_time: !input end_time
+  use_sun_times: !input use_sun_times
+  morning_position: !input morning_position
+  evening_position: !input evening_position
   night_close_enabled: !input night_close_enabled
   night_close_position: !input night_close_position
   disable_boolean: !input disable_boolean
   # commands: [{entity_id, position}, ...] to apply this run.
-  #   - inside the schedule window -> sun-azimuth based positions
-  #   - outside the window + night close -> night position for every cover
-  #   - otherwise -> empty (nothing moves)
+  # First the active "phase" is decided, then it is turned into positions:
+  #   sun      -> sun-azimuth based positions per facade
+  #   morning  -> morning_position for every cover (window mode, before sunrise)
+  #   evening  -> evening_position for every cover (window mode, after sunset)
+  #   off      -> night_close_position for every cover (only if night close on)
   commands: >
-    {% set now_t = now().strftime('%H:%M:%S') %}
-    {% set in_window = (start_time <= now_t < end_time) if start_time <= end_time
-                       else (now_t >= start_time or now_t < end_time) %}
     {% set all_covers = covers_north + covers_east + covers_south + covers_west %}
     {% set ns = namespace(items=[]) %}
-    {% if in_window and (states(azimuth_entity) | is_number) %}
+    {% if not (states(elevation_entity) | is_number) %}
+      {# elevation unavailable -> do nothing #}
+      {% set phase = 'skip' %}
+    {% else %}
+      {% set elev = states(elevation_entity) | float(0) %}
+      {% set day = elev > 0 %}
+      {% if use_sun_times %}
+        {# sunrise/sunset window: active only while the sun is up #}
+        {% set phase = 'sun' if day else 'off' %}
+      {% else %}
+        {% set now_t = now().strftime('%H:%M:%S') %}
+        {% set in_window = (start_time <= now_t < end_time) if start_time <= end_time
+                           else (now_t >= start_time or now_t < end_time) %}
+        {% if not in_window %}
+          {% set phase = 'off' %}
+        {% elif day %}
+          {% set phase = 'sun' %}
+        {% else %}
+          {# inside window but sun below horizon: split morning vs evening
+             by the window midpoint (handles windows crossing midnight) #}
+          {% set sm = start_time[0:2] | int * 60 + start_time[3:5] | int %}
+          {% set em = end_time[0:2] | int * 60 + end_time[3:5] | int %}
+          {% set nm = now().hour * 60 + now().minute %}
+          {% set span = (em - sm) if em >= sm else (em + 1440 - sm) %}
+          {% set elapsed = (nm - sm) if nm >= sm else (nm + 1440 - sm) %}
+          {% set phase = 'morning' if elapsed < span / 2 else 'evening' %}
+        {% endif %}
+      {% endif %}
+    {% endif %}
+    {% if phase == 'sun' and (states(azimuth_entity) | is_number) %}
       {% set az = states(azimuth_entity) | float(0) %}
       {% set off = building_offset | float(0) %}
       {% set groups = [
@@ -280,7 +371,15 @@ variables:
           {% set ns.items = ns.items + [{'entity_id': cv, 'position': pos | int}] %}
         {% endfor %}
       {% endfor %}
-    {% elif (not in_window) and night_close_enabled %}
+    {% elif phase == 'morning' %}
+      {% for cv in all_covers %}
+        {% set ns.items = ns.items + [{'entity_id': cv, 'position': morning_position | int}] %}
+      {% endfor %}
+    {% elif phase == 'evening' %}
+      {% for cv in all_covers %}
+        {% set ns.items = ns.items + [{'entity_id': cv, 'position': evening_position | int}] %}
+      {% endfor %}
+    {% elif phase == 'off' and night_close_enabled %}
       {% for cv in all_covers %}
         {% set ns.items = ns.items + [{'entity_id': cv, 'position': night_close_position | int}] %}
       {% endfor %}
@@ -290,6 +389,8 @@ variables:
 trigger:
   - platform: state
     entity_id: !input azimuth_entity
+  - platform: state
+    entity_id: !input elevation_entity
   - platform: time_pattern
     minutes: "/5"
   - platform: time

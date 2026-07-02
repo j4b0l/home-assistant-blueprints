@@ -59,20 +59,38 @@ are `none = 100`, `indirect-early = 70`, `direct = 30`, `indirect-late = 70`
 (more sun → more closed). If you prefer to think in "how much closed", just
 invert your configured values.
 
-### Schedule & night fallback
+### Schedule, twilight & night fallback
 
-Sun-based positioning is only applied while the current time is inside the
-**allowed window** (`Allowed from` … `Allowed until`, which may cross midnight).
+Sun-azimuth positioning is applied while the sun is **above the horizon** (read
+from the elevation entity) **and** inside the active window. The active window
+is one of two modes:
 
-Outside the window:
+- **Time window** (default) — `Allowed from` … `Allowed until` (may cross
+  midnight).
+- **Sunrise/sunset** — enable *"Use sunrise/sunset instead of the time window"*
+  and the fixed times are ignored; the active window becomes exactly
+  sunrise-to-sunset (elevation > 0). Morning/evening positions are unused in
+  this mode.
+
+In **time-window mode**, while inside the window but the sun is still below the
+horizon, all covers take a transitional position:
+
+- between the **start time and sunrise** → **Morning position**
+- between **sunset and the end time** → **Evening position**
+
+(Morning vs evening is decided by the window's midpoint, which also works for
+windows that cross midnight.)
+
+**Outside the active window** (and outside sunrise-sunset in sun mode):
 
 - **Close fully at night = on** → every configured cover is driven to the
   **Night position** (default `0`, fully closed).
 - **Close fully at night = off** → covers are left untouched and keep whatever
   position they had.
 
-A cover is only ever commanded when its current position differs from the
-target, avoiding needless motor movement.
+If the elevation entity is unavailable/non-numeric, the automation does nothing
+that run. A cover is only ever commanded when its current position differs from
+the target, avoiding needless motor movement.
 
 ### Disable / guard
 
@@ -107,10 +125,14 @@ It runs in `mode: queued` so bursts of azimuth updates are handled in order.
 | Input | Notes |
 | --- | --- |
 | **Sun azimuth entity** | A `sensor`/`input_number` whose **state** is the azimuth in degrees (0–360). For the built-in Sun integration use `sensor.sun_solar_azimuth` — the `sun.sun` entity exposes azimuth only as an *attribute* and cannot be used directly. |
+| **Sun elevation entity** | A `sensor`/`input_number` whose **state** is the elevation in degrees (positive = above horizon). Use `sensor.sun_solar_elevation`. |
 | **Building offset** | `-45°`…`+45°`, rotation of the building away from true N-S / E-W. |
 | **North / East / South / West covers** | Cover groups (each optional). |
 | **None / Indirect-early / Direct / Indirect-late** | Target position (0–100%) per zone. |
-| **Allowed from / until** | Schedule window (may cross midnight). |
+| **Use sunrise/sunset instead of the time window** | Ignore the fixed times; active window becomes sunrise→sunset. |
+| **Allowed from / until** | Fixed schedule window (may cross midnight); ignored in sunrise/sunset mode. |
+| **Morning position** | All-cover position between start time and sunrise (time-window mode). |
+| **Evening position** | All-cover position between sunset and end time (time-window mode). |
 | **Close fully at night** | Toggle for the night fallback. |
 | **Night position** | Position used outside the window when the fallback is on. |
 | **Disable entity** | Optional boolean-like entity; while `on` the automation is stopped. |
@@ -118,8 +140,10 @@ It runs in `mode: queued` so bursts of azimuth updates are handled in order.
 
 ### Requirements
 
-- A numeric azimuth source. With the built-in **Sun** integration, enable the
-  `sensor.sun_solar_azimuth` entity (Settings → Devices & Services → Entities).
+- Numeric azimuth **and** elevation sources. With the built-in **Sun**
+  integration, enable the `sensor.sun_solar_azimuth` and
+  `sensor.sun_solar_elevation` entities (Settings → Devices & Services →
+  Entities).
 - Covers that support `set_cover_position`.
 
 ### Installation
