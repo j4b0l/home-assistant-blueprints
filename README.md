@@ -6,6 +6,7 @@ A small collection of Home Assistant automation blueprints.
 | --- | --- | --- |
 | IKEA BILRESA scroll wheel (shutter) | [`ikea-bilresa-scroll-wheel-shutter.yaml`](ikea-bilresa-scroll-wheel-shutter.yaml) | Control shutters with the IKEA BILRESA Matter scroll wheel. |
 | Sun Azimuth Cover Control | [`sun-azimuth-cover-control.yaml`](sun-azimuth-cover-control.yaml) | Position covers automatically based on where the sun is. |
+| Medicine Intake & Storage Tracker | [`medicine-intake-storage.yaml`](medicine-intake-storage.yaml) | Decrement medicine stock daily and warn before it runs out. |
 
 ---
 
@@ -153,3 +154,65 @@ It runs in `mode: queued` so bursts of azimuth updates are handled in order.
 2. Paste the raw URL of `sun-azimuth-cover-control.yaml` (or copy the file into
    `config/blueprints/automation/<your-folder>/`).
 3. Create an automation from the blueprint and fill in the inputs.
+
+---
+
+## Medicine Intake & Storage Tracker
+
+Keeps a running count of your medicine stock and pushes a notification before
+any medicine runs out.
+
+### How it works
+
+Each medicine is a **pair of number helpers** (`input_number`):
+
+- **Storage** — current units in stock.
+- **Daily intake** — units taken per day.
+
+Up to **10 medicines** can be configured; each has its own optional name plus
+the storage/intake pair. Slots whose storage helper is left empty are ignored,
+so use as many as you need.
+
+Once a day, at the configured **Daily time**, the automation:
+
+1. Decrements every storage helper by its daily intake (never below `0`).
+2. Computes remaining supply as `storage ÷ daily intake` (in days).
+3. Collects every medicine with **fewer than "Warn this many days early"**
+   days of supply left into a summary.
+4. If the summary is non-empty, sends it as a notification to every configured
+   device (companion app). Nothing is sent when everything is well-stocked.
+
+The summary lists each low medicine, e.g.:
+
+```
+💊 Medicine running low
+• Vitamin D: 4 left (~4.0 day(s), 1/day)
+• Magnesium: 3 left (~1.0 day(s), 3/day)
+```
+
+### Notes
+
+- **Fixed slots, not "unlimited".** Home Assistant blueprints can't add input
+  groups dynamically, so 10 named slots are provided. Using named slots (rather
+  than two index-paired entity lists) keeps each storage paired with the right
+  intake — important for medicine.
+- A medicine with a daily intake of `0` is never reported as running low.
+- Setting **Warn days** to `0` disables early warnings (you'd only ever be told
+  once a medicine is already at/над its last day).
+- Decrementing happens **only** on the daily time trigger — there is no
+  Home Assistant-start trigger, so restarts do not double-count.
+
+### Inputs
+
+| Input | Notes |
+| --- | --- |
+| **Daily time** | When stock is decremented and notifications are sent. |
+| **Warn this many days early** | Threshold in days (0–30) for the low-supply warning. |
+| **Notification targets** | One or more companion-app devices to notify. |
+| **Notification title** | Title of the push notification. |
+| **Medicine N: name / storage helper / daily intake helper** | Per-medicine label and the two `input_number` helpers (10 slots). |
+
+### Requirements
+
+- Two `input_number` helpers per medicine (one for stock, one for daily intake).
+- At least one mobile device running the Home Assistant companion app.

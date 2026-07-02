@@ -1,0 +1,420 @@
+blueprint:
+  name: Medicine Intake & Storage Tracker
+  description: |
+    Track medicine stock and warn before it runs out.
+
+    Configure up to 10 medicines. Each medicine is a pair of number helpers:
+      - Storage    : current stock count (input_number)
+      - Daily intake: how many units are taken per day (input_number)
+
+    Once a day, at the configured time, the automation:
+      1. Decrements every storage helper by its daily intake (clamped at 0).
+      2. Computes the remaining days of supply (storage / daily intake).
+      3. If any medicine has fewer than the configured number of days left,
+         it is added to a summary that is pushed to the selected devices.
+
+    Only medicines whose Storage helper is set are processed; empty slots are
+    ignored, so you can use as many of the 10 slots as you need. Helpers must
+    be "number" helpers (input_number).
+
+    Version: 2026-07-02
+  domain: automation
+
+  input:
+    settings_section:
+      name: Settings
+      icon: mdi:cog
+      input:
+        notify_time:
+          name: Daily time
+          description: >
+            Time of day when stock is decremented and notifications are sent.
+          default: "08:00:00"
+          selector:
+            time: {}
+        warn_days:
+          name: Warn this many days early
+          description: >
+            Notify when a medicine has fewer than this many days of supply
+            left (0-30). 0 effectively disables early warnings.
+          default: 7
+          selector:
+            number:
+              min: 0
+              max: 30
+              step: 1
+              unit_of_measurement: days
+              mode: slider
+        notify_devices:
+          name: Notification targets
+          description: One or more mobile devices to notify (companion app).
+          selector:
+            device:
+              multiple: true
+              filter:
+                - integration: mobile_app
+        notify_title:
+          name: Notification title
+          default: "💊 Medicine running low"
+          selector:
+            text: {}
+
+    medicine_1_section:
+      name: Medicine 1
+      icon: mdi:pill
+      collapsed: true
+      input:
+        med_1_name:
+          name: "Medicine 1: name"
+          description: Optional label used in the summary (defaults to the storage helper name).
+          default: ""
+          selector:
+            text: {}
+        med_1_storage:
+          name: "Medicine 1: storage helper"
+          default:
+          selector:
+            entity:
+              filter:
+                domain: input_number
+        med_1_intake:
+          name: "Medicine 1: daily intake helper"
+          default:
+          selector:
+            entity:
+              filter:
+                domain: input_number
+
+    medicine_2_section:
+      name: Medicine 2
+      icon: mdi:pill
+      collapsed: true
+      input:
+        med_2_name:
+          name: "Medicine 2: name"
+          default: ""
+          selector:
+            text: {}
+        med_2_storage:
+          name: "Medicine 2: storage helper"
+          default:
+          selector:
+            entity:
+              filter:
+                domain: input_number
+        med_2_intake:
+          name: "Medicine 2: daily intake helper"
+          default:
+          selector:
+            entity:
+              filter:
+                domain: input_number
+
+    medicine_3_section:
+      name: Medicine 3
+      icon: mdi:pill
+      collapsed: true
+      input:
+        med_3_name:
+          name: "Medicine 3: name"
+          default: ""
+          selector:
+            text: {}
+        med_3_storage:
+          name: "Medicine 3: storage helper"
+          default:
+          selector:
+            entity:
+              filter:
+                domain: input_number
+        med_3_intake:
+          name: "Medicine 3: daily intake helper"
+          default:
+          selector:
+            entity:
+              filter:
+                domain: input_number
+
+    medicine_4_section:
+      name: Medicine 4
+      icon: mdi:pill
+      collapsed: true
+      input:
+        med_4_name:
+          name: "Medicine 4: name"
+          default: ""
+          selector:
+            text: {}
+        med_4_storage:
+          name: "Medicine 4: storage helper"
+          default:
+          selector:
+            entity:
+              filter:
+                domain: input_number
+        med_4_intake:
+          name: "Medicine 4: daily intake helper"
+          default:
+          selector:
+            entity:
+              filter:
+                domain: input_number
+
+    medicine_5_section:
+      name: Medicine 5
+      icon: mdi:pill
+      collapsed: true
+      input:
+        med_5_name:
+          name: "Medicine 5: name"
+          default: ""
+          selector:
+            text: {}
+        med_5_storage:
+          name: "Medicine 5: storage helper"
+          default:
+          selector:
+            entity:
+              filter:
+                domain: input_number
+        med_5_intake:
+          name: "Medicine 5: daily intake helper"
+          default:
+          selector:
+            entity:
+              filter:
+                domain: input_number
+
+    medicine_6_section:
+      name: Medicine 6
+      icon: mdi:pill
+      collapsed: true
+      input:
+        med_6_name:
+          name: "Medicine 6: name"
+          default: ""
+          selector:
+            text: {}
+        med_6_storage:
+          name: "Medicine 6: storage helper"
+          default:
+          selector:
+            entity:
+              filter:
+                domain: input_number
+        med_6_intake:
+          name: "Medicine 6: daily intake helper"
+          default:
+          selector:
+            entity:
+              filter:
+                domain: input_number
+
+    medicine_7_section:
+      name: Medicine 7
+      icon: mdi:pill
+      collapsed: true
+      input:
+        med_7_name:
+          name: "Medicine 7: name"
+          default: ""
+          selector:
+            text: {}
+        med_7_storage:
+          name: "Medicine 7: storage helper"
+          default:
+          selector:
+            entity:
+              filter:
+                domain: input_number
+        med_7_intake:
+          name: "Medicine 7: daily intake helper"
+          default:
+          selector:
+            entity:
+              filter:
+                domain: input_number
+
+    medicine_8_section:
+      name: Medicine 8
+      icon: mdi:pill
+      collapsed: true
+      input:
+        med_8_name:
+          name: "Medicine 8: name"
+          default: ""
+          selector:
+            text: {}
+        med_8_storage:
+          name: "Medicine 8: storage helper"
+          default:
+          selector:
+            entity:
+              filter:
+                domain: input_number
+        med_8_intake:
+          name: "Medicine 8: daily intake helper"
+          default:
+          selector:
+            entity:
+              filter:
+                domain: input_number
+
+    medicine_9_section:
+      name: Medicine 9
+      icon: mdi:pill
+      collapsed: true
+      input:
+        med_9_name:
+          name: "Medicine 9: name"
+          default: ""
+          selector:
+            text: {}
+        med_9_storage:
+          name: "Medicine 9: storage helper"
+          default:
+          selector:
+            entity:
+              filter:
+                domain: input_number
+        med_9_intake:
+          name: "Medicine 9: daily intake helper"
+          default:
+          selector:
+            entity:
+              filter:
+                domain: input_number
+
+    medicine_10_section:
+      name: Medicine 10
+      icon: mdi:pill
+      collapsed: true
+      input:
+        med_10_name:
+          name: "Medicine 10: name"
+          default: ""
+          selector:
+            text: {}
+        med_10_storage:
+          name: "Medicine 10: storage helper"
+          default:
+          selector:
+            entity:
+              filter:
+                domain: input_number
+        med_10_intake:
+          name: "Medicine 10: daily intake helper"
+          default:
+          selector:
+            entity:
+              filter:
+                domain: input_number
+
+variables:
+  warn_days: !input warn_days
+  med_1_name: !input med_1_name
+  med_1_storage: !input med_1_storage
+  med_1_intake: !input med_1_intake
+  med_2_name: !input med_2_name
+  med_2_storage: !input med_2_storage
+  med_2_intake: !input med_2_intake
+  med_3_name: !input med_3_name
+  med_3_storage: !input med_3_storage
+  med_3_intake: !input med_3_intake
+  med_4_name: !input med_4_name
+  med_4_storage: !input med_4_storage
+  med_4_intake: !input med_4_intake
+  med_5_name: !input med_5_name
+  med_5_storage: !input med_5_storage
+  med_5_intake: !input med_5_intake
+  med_6_name: !input med_6_name
+  med_6_storage: !input med_6_storage
+  med_6_intake: !input med_6_intake
+  med_7_name: !input med_7_name
+  med_7_storage: !input med_7_storage
+  med_7_intake: !input med_7_intake
+  med_8_name: !input med_8_name
+  med_8_storage: !input med_8_storage
+  med_8_intake: !input med_8_intake
+  med_9_name: !input med_9_name
+  med_9_storage: !input med_9_storage
+  med_9_intake: !input med_9_intake
+  med_10_name: !input med_10_name
+  med_10_storage: !input med_10_storage
+  med_10_intake: !input med_10_intake
+  # Configured medicine slots that actually have a storage + intake helper set.
+  meds: >
+    {% set raw = [
+      {'name': med_1_name,  'storage': med_1_storage,  'intake': med_1_intake},
+      {'name': med_2_name,  'storage': med_2_storage,  'intake': med_2_intake},
+      {'name': med_3_name,  'storage': med_3_storage,  'intake': med_3_intake},
+      {'name': med_4_name,  'storage': med_4_storage,  'intake': med_4_intake},
+      {'name': med_5_name,  'storage': med_5_storage,  'intake': med_5_intake},
+      {'name': med_6_name,  'storage': med_6_storage,  'intake': med_6_intake},
+      {'name': med_7_name,  'storage': med_7_storage,  'intake': med_7_intake},
+      {'name': med_8_name,  'storage': med_8_storage,  'intake': med_8_intake},
+      {'name': med_9_name,  'storage': med_9_storage,  'intake': med_9_intake},
+      {'name': med_10_name, 'storage': med_10_storage, 'intake': med_10_intake}] %}
+    {% set ns = namespace(items=[]) %}
+    {% for m in raw %}
+      {% if m.storage not in [none, '', 'none'] and m.intake not in [none, '', 'none'] %}
+        {% set ns.items = ns.items + [m] %}
+      {% endif %}
+    {% endfor %}
+    {{ ns.items }}
+
+trigger:
+  - platform: time
+    at: !input notify_time
+
+action:
+  # Snapshot each medicine: current stock, intake, new stock, days of supply left.
+  - variables:
+      rows: >
+        {% set ns = namespace(rows=[]) %}
+        {% for m in meds %}
+          {% set cur = states(m.storage) | float(0) %}
+          {% set intake = states(m.intake) | float(0) %}
+          {% set newv = [cur - intake, 0] | max %}
+          {% set days = (newv / intake) if intake > 0 else -1 %}
+          {% set label = m.name if m.name not in [none, ''] else (state_attr(m.storage, 'friendly_name') or m.storage) %}
+          {% set ns.rows = ns.rows + [{
+            'storage': m.storage, 'new': newv, 'intake': intake,
+            'days': days, 'label': label}] %}
+        {% endfor %}
+        {{ ns.rows }}
+  # 1) Decrement every storage helper by its daily intake.
+  - repeat:
+      for_each: "{{ rows }}"
+      sequence:
+        - service: input_number.set_value
+          target:
+            entity_id: "{{ repeat.item.storage }}"
+          data:
+            value: "{{ repeat.item.new }}"
+  # 2) Build the "running low" summary and notify if anything is low.
+  - variables:
+      low: >
+        {{ rows | selectattr('days', 'ge', 0)
+                | selectattr('days', 'lt', warn_days | float(0)) | list }}
+      summary: >-
+        {%- set ns2 = namespace(lines=[]) -%}
+        {%- for r in low -%}
+          {%- set ns2.lines = ns2.lines + ['• ' ~ r.label ~ ': ' ~ (r.new | round(0)) ~ ' left (~' ~ (r.days | round(1)) ~ ' day(s), ' ~ (r.intake | round(0)) ~ '/day)'] -%}
+        {%- endfor -%}
+        {{ ns2.lines | join('\n') }}
+  - if:
+      - condition: template
+        value_template: "{{ low | count > 0 }}"
+    then:
+      - repeat:
+          for_each: !input notify_devices
+          sequence:
+            # mobile_app device notify action; device_id templated per target.
+            - domain: mobile_app
+              type: notify
+              device_id: "{{ repeat.item }}"
+              title: !input notify_title
+              message: "{{ summary }}"
+
+mode: single
