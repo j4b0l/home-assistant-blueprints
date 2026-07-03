@@ -1,0 +1,431 @@
+blueprint:
+  name: Accumulation Limit Tracker
+  description: |
+    Track any value that grows over time (a savings goal, accumulated hours, a
+    filling tank, a counter approaching a cap, ...) and warn how many days are
+    left before it reaches its maximum.
+
+    Configure up to 10 items. Each item is a pair of number helpers:
+      - Value         : current value (input_number). Its "max" setting is the
+                        limit that is tracked towards.
+      - Daily increase: how much the value grows per day (input_number)
+
+    Once a day, at the configured time, the automation:
+      1. Increases every value helper by its daily increase (clamped at the
+         helper's max).
+      2. Computes the days remaining until the value reaches its max
+         ((max - value) / daily increase).
+      3. Sends a summary of every item that will hit its max within the
+         configured number of days to the selected devices.
+
+    The limit is the input_number helper's own "max" attribute, so set it on
+    each Value helper. Slots whose helpers are empty are ignored.
+
+    Version: 2026-07-02
+  domain: automation
+
+  input:
+    settings_section:
+      name: Settings
+      icon: mdi:cog
+      input:
+        notify_time:
+          name: Daily time
+          description: >
+            Time of day when values are updated and notifications are sent.
+          default: "08:00:00"
+          selector:
+            time: {}
+        warn_days:
+          name: Warn threshold (days)
+          description: >
+            Notify when an item will reach its max within this many days (0-30). 0 disables early warnings.
+          default: 7
+          selector:
+            number:
+              min: 0
+              max: 30
+              step: 1
+              unit_of_measurement: days
+              mode: slider
+        notify_devices:
+          name: Notification targets
+          description: One or more mobile devices to notify (companion app).
+          selector:
+            device:
+              multiple: true
+              filter:
+                - integration: mobile_app
+        notify_title:
+          name: Notification title
+          default: "📈 Approaching limit"
+          selector:
+            text: {}
+
+    item_1_section:
+      name: Item 1
+      icon: mdi:chart-line
+      collapsed: true
+      input:
+        item_1_name:
+          name: "Item 1: name"
+          description: Optional label used in the summary (defaults to the helper name).
+          default: ""
+          selector:
+            text: {}
+        item_1_value:
+          name: "Item 1: value helper"
+          default:
+          selector:
+            entity:
+              filter:
+                domain: input_number
+        item_1_increase:
+          name: "Item 1: daily increase helper"
+          default:
+          selector:
+            entity:
+              filter:
+                domain: input_number
+
+    item_2_section:
+      name: Item 2
+      icon: mdi:chart-line
+      collapsed: true
+      input:
+        item_2_name:
+          name: "Item 2: name"
+          description: Optional label used in the summary (defaults to the helper name).
+          default: ""
+          selector:
+            text: {}
+        item_2_value:
+          name: "Item 2: value helper"
+          default:
+          selector:
+            entity:
+              filter:
+                domain: input_number
+        item_2_increase:
+          name: "Item 2: daily increase helper"
+          default:
+          selector:
+            entity:
+              filter:
+                domain: input_number
+
+    item_3_section:
+      name: Item 3
+      icon: mdi:chart-line
+      collapsed: true
+      input:
+        item_3_name:
+          name: "Item 3: name"
+          description: Optional label used in the summary (defaults to the helper name).
+          default: ""
+          selector:
+            text: {}
+        item_3_value:
+          name: "Item 3: value helper"
+          default:
+          selector:
+            entity:
+              filter:
+                domain: input_number
+        item_3_increase:
+          name: "Item 3: daily increase helper"
+          default:
+          selector:
+            entity:
+              filter:
+                domain: input_number
+
+    item_4_section:
+      name: Item 4
+      icon: mdi:chart-line
+      collapsed: true
+      input:
+        item_4_name:
+          name: "Item 4: name"
+          description: Optional label used in the summary (defaults to the helper name).
+          default: ""
+          selector:
+            text: {}
+        item_4_value:
+          name: "Item 4: value helper"
+          default:
+          selector:
+            entity:
+              filter:
+                domain: input_number
+        item_4_increase:
+          name: "Item 4: daily increase helper"
+          default:
+          selector:
+            entity:
+              filter:
+                domain: input_number
+
+    item_5_section:
+      name: Item 5
+      icon: mdi:chart-line
+      collapsed: true
+      input:
+        item_5_name:
+          name: "Item 5: name"
+          description: Optional label used in the summary (defaults to the helper name).
+          default: ""
+          selector:
+            text: {}
+        item_5_value:
+          name: "Item 5: value helper"
+          default:
+          selector:
+            entity:
+              filter:
+                domain: input_number
+        item_5_increase:
+          name: "Item 5: daily increase helper"
+          default:
+          selector:
+            entity:
+              filter:
+                domain: input_number
+
+    item_6_section:
+      name: Item 6
+      icon: mdi:chart-line
+      collapsed: true
+      input:
+        item_6_name:
+          name: "Item 6: name"
+          description: Optional label used in the summary (defaults to the helper name).
+          default: ""
+          selector:
+            text: {}
+        item_6_value:
+          name: "Item 6: value helper"
+          default:
+          selector:
+            entity:
+              filter:
+                domain: input_number
+        item_6_increase:
+          name: "Item 6: daily increase helper"
+          default:
+          selector:
+            entity:
+              filter:
+                domain: input_number
+
+    item_7_section:
+      name: Item 7
+      icon: mdi:chart-line
+      collapsed: true
+      input:
+        item_7_name:
+          name: "Item 7: name"
+          description: Optional label used in the summary (defaults to the helper name).
+          default: ""
+          selector:
+            text: {}
+        item_7_value:
+          name: "Item 7: value helper"
+          default:
+          selector:
+            entity:
+              filter:
+                domain: input_number
+        item_7_increase:
+          name: "Item 7: daily increase helper"
+          default:
+          selector:
+            entity:
+              filter:
+                domain: input_number
+
+    item_8_section:
+      name: Item 8
+      icon: mdi:chart-line
+      collapsed: true
+      input:
+        item_8_name:
+          name: "Item 8: name"
+          description: Optional label used in the summary (defaults to the helper name).
+          default: ""
+          selector:
+            text: {}
+        item_8_value:
+          name: "Item 8: value helper"
+          default:
+          selector:
+            entity:
+              filter:
+                domain: input_number
+        item_8_increase:
+          name: "Item 8: daily increase helper"
+          default:
+          selector:
+            entity:
+              filter:
+                domain: input_number
+
+    item_9_section:
+      name: Item 9
+      icon: mdi:chart-line
+      collapsed: true
+      input:
+        item_9_name:
+          name: "Item 9: name"
+          description: Optional label used in the summary (defaults to the helper name).
+          default: ""
+          selector:
+            text: {}
+        item_9_value:
+          name: "Item 9: value helper"
+          default:
+          selector:
+            entity:
+              filter:
+                domain: input_number
+        item_9_increase:
+          name: "Item 9: daily increase helper"
+          default:
+          selector:
+            entity:
+              filter:
+                domain: input_number
+
+    item_10_section:
+      name: Item 10
+      icon: mdi:chart-line
+      collapsed: true
+      input:
+        item_10_name:
+          name: "Item 10: name"
+          description: Optional label used in the summary (defaults to the helper name).
+          default: ""
+          selector:
+            text: {}
+        item_10_value:
+          name: "Item 10: value helper"
+          default:
+          selector:
+            entity:
+              filter:
+                domain: input_number
+        item_10_increase:
+          name: "Item 10: daily increase helper"
+          default:
+          selector:
+            entity:
+              filter:
+                domain: input_number
+
+variables:
+  warn_days: !input warn_days
+  item_1_name: !input item_1_name
+  item_1_value: !input item_1_value
+  item_1_increase: !input item_1_increase
+  item_2_name: !input item_2_name
+  item_2_value: !input item_2_value
+  item_2_increase: !input item_2_increase
+  item_3_name: !input item_3_name
+  item_3_value: !input item_3_value
+  item_3_increase: !input item_3_increase
+  item_4_name: !input item_4_name
+  item_4_value: !input item_4_value
+  item_4_increase: !input item_4_increase
+  item_5_name: !input item_5_name
+  item_5_value: !input item_5_value
+  item_5_increase: !input item_5_increase
+  item_6_name: !input item_6_name
+  item_6_value: !input item_6_value
+  item_6_increase: !input item_6_increase
+  item_7_name: !input item_7_name
+  item_7_value: !input item_7_value
+  item_7_increase: !input item_7_increase
+  item_8_name: !input item_8_name
+  item_8_value: !input item_8_value
+  item_8_increase: !input item_8_increase
+  item_9_name: !input item_9_name
+  item_9_value: !input item_9_value
+  item_9_increase: !input item_9_increase
+  item_10_name: !input item_10_name
+  item_10_value: !input item_10_value
+  item_10_increase: !input item_10_increase
+  # Configured slots that actually have both helpers set.
+  items: >
+    {% set raw = [
+      {'name': item_1_name, 'a': item_1_value, 'b': item_1_increase},
+      {'name': item_2_name, 'a': item_2_value, 'b': item_2_increase},
+      {'name': item_3_name, 'a': item_3_value, 'b': item_3_increase},
+      {'name': item_4_name, 'a': item_4_value, 'b': item_4_increase},
+      {'name': item_5_name, 'a': item_5_value, 'b': item_5_increase},
+      {'name': item_6_name, 'a': item_6_value, 'b': item_6_increase},
+      {'name': item_7_name, 'a': item_7_value, 'b': item_7_increase},
+      {'name': item_8_name, 'a': item_8_value, 'b': item_8_increase},
+      {'name': item_9_name, 'a': item_9_value, 'b': item_9_increase},
+      {'name': item_10_name, 'a': item_10_value, 'b': item_10_increase}] %}
+    {% set ns = namespace(items=[]) %}
+    {% for m in raw %}
+      {% if m.a not in [none, '', 'none'] and m.b not in [none, '', 'none'] %}
+        {% set ns.items = ns.items + [m] %}
+      {% endif %}
+    {% endfor %}
+    {{ ns.items }}
+
+trigger:
+  - platform: time
+    at: !input notify_time
+
+action:
+  - variables:
+      rows: >
+        {% set ns = namespace(rows=[]) %}
+        {% for m in items %}
+          {% set cur = states(m.a) | float(0) %}
+          {% set inc = states(m.b) | float(0) %}
+          {% set maxv = state_attr(m.a, 'max') | float(100) %}
+          {% set newv = [cur + inc, maxv] | min %}
+          {% set days = ((maxv - newv) / inc) if inc > 0 else -1 %}
+          {% set label = m.name if m.name not in [none, ''] else (state_attr(m.a, 'friendly_name') or m.a) %}
+          {% set ns.rows = ns.rows + [{'target': m.a, 'new': newv, 'max': maxv, 'rate': inc, 'days': days, 'label': label}] %}
+        {% endfor %}
+        {{ ns.rows }}
+  # 1) Increase every value helper by its daily increase (clamped at max).
+  - repeat:
+      for_each: "{{ rows }}"
+      sequence:
+        - service: input_number.set_value
+          target:
+            entity_id: "{{ repeat.item.target }}"
+          data:
+            value: "{{ repeat.item.new }}"
+  # 2) Build the "approaching max" summary and notify if anything is close.
+  - variables:
+      low: >
+        {{ rows | selectattr('days', 'ge', 0)
+                | selectattr('days', 'lt', warn_days | float(0)) | list }}
+      summary: >-
+        {%- set ns2 = namespace(lines=[]) -%}
+        {%- for r in low -%}
+          {%- set ns2.lines = ns2.lines + ['• ' ~ r.label ~ ': ' ~ (r.new | round(0)) ~ '/' ~ (r.max | round(0)) ~ ' (~' ~ (r.days | round(1)) ~ ' day(s) to max, +' ~ (r.rate | round(0)) ~ '/day)'] -%}
+        {%- endfor -%}
+        {{ ns2.lines | join('\n') }}
+  - if:
+      - condition: template
+        value_template: "{{ low | count > 0 }}"
+    then:
+      - repeat:
+          for_each: !input notify_devices
+          sequence:
+            # Device actions reject a templated device_id, so call the mobile_app
+            # notify service built from the device's (original) name instead.
+            - service: >-
+                notify.mobile_app_{{ device_attr(repeat.item, 'name') | slugify }}
+              data:
+                title: !input notify_title
+                message: "{{ summary }}"
+
+mode: single

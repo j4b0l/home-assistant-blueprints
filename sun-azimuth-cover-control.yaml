@@ -32,6 +32,11 @@ blueprint:
     configured cover is driven to the night position (fully closed by default);
     otherwise nothing moves and covers keep whatever position they had.
 
+    Optionally, a cloud coverage entity can switch every phase (except the night
+    close) to a separate set of "- cloudy" positions whenever coverage is above
+    a configurable threshold. Cloud changes are picked up on the regular 5-minute
+    re-evaluation.
+
     A cover is only commanded when its current position actually differs from
     the target, to avoid needless motor movement.
 
@@ -137,10 +142,23 @@ blueprint:
       name: Target positions
       icon: mdi:arrow-up-down
       description: >
-        Cover position (0 = closed, 100 = open) for each sun zone.
+        Cover position (0 = closed, 100 = open) for each sun zone. Each zone has
+        a clear-sky value and a separate value used when it is cloudy (see the
+        Cloud coverage section). The cloudy value is ignored if no cloud entity
+        is configured.
       input:
         pct_none:
           name: None (sun not on facade)
+          default: 100
+          selector:
+            number:
+              min: 0
+              max: 100
+              step: 1
+              unit_of_measurement: "%"
+              mode: slider
+        pct_none_cloudy:
+          name: None - cloudy
           default: 100
           selector:
             number:
@@ -159,6 +177,16 @@ blueprint:
               step: 1
               unit_of_measurement: "%"
               mode: slider
+        pct_indirect_early_cloudy:
+          name: Indirect - early - cloudy
+          default: 90
+          selector:
+            number:
+              min: 0
+              max: 100
+              step: 1
+              unit_of_measurement: "%"
+              mode: slider
         pct_direct:
           name: Direct (sun straight on facade)
           default: 30
@@ -169,8 +197,62 @@ blueprint:
               step: 1
               unit_of_measurement: "%"
               mode: slider
+        pct_direct_cloudy:
+          name: Direct - cloudy
+          default: 70
+          selector:
+            number:
+              min: 0
+              max: 100
+              step: 1
+              unit_of_measurement: "%"
+              mode: slider
         pct_indirect_late:
           name: Indirect - late (sun about to leave)
+          default: 70
+          selector:
+            number:
+              min: 0
+              max: 100
+              step: 1
+              unit_of_measurement: "%"
+              mode: slider
+        pct_indirect_late_cloudy:
+          name: Indirect - late - cloudy
+          default: 90
+          selector:
+            number:
+              min: 0
+              max: 100
+              step: 1
+              unit_of_measurement: "%"
+              mode: slider
+
+    cloud_section:
+      name: Cloud coverage
+      icon: mdi:weather-partly-cloudy
+      description: >
+        Optional. When it is cloudy, the "- cloudy" position variants are used
+        for every state except the night position. Leave the entity empty to
+        always use the clear-sky positions.
+      input:
+        cloud_entity:
+          name: Cloud coverage entity
+          description: >
+            Optional entity whose numeric state is the cloud coverage in percent
+            (0-100). For the built-in Met.no weather you can create a template
+            sensor from the "cloud_coverage" attribute.
+          default:
+          selector:
+            entity:
+              filter:
+                domain:
+                  - sensor
+                  - input_number
+        cloudy_threshold:
+          name: Cloudy above
+          description: >
+            Cloud coverage strictly above this percentage counts as "cloudy".
           default: 70
           selector:
             number:
@@ -223,11 +305,31 @@ blueprint:
               step: 1
               unit_of_measurement: "%"
               mode: slider
+        morning_position_cloudy:
+          name: Morning position - cloudy
+          default: 100
+          selector:
+            number:
+              min: 0
+              max: 100
+              step: 1
+              unit_of_measurement: "%"
+              mode: slider
         evening_position:
           name: Evening position (after sunset)
           description: >
             Position for all covers between sunset and the end time (while the
             sun is below the horizon in the evening). Time-window mode only.
+          default: 100
+          selector:
+            number:
+              min: 0
+              max: 100
+              step: 1
+              unit_of_measurement: "%"
+              mode: slider
+        evening_position_cloudy:
+          name: Evening position - cloudy
           default: 100
           selector:
             number:
@@ -302,16 +404,26 @@ variables:
   pct_indirect_early: !input pct_indirect_early
   pct_direct: !input pct_direct
   pct_indirect_late: !input pct_indirect_late
+  pct_none_cloudy: !input pct_none_cloudy
+  pct_indirect_early_cloudy: !input pct_indirect_early_cloudy
+  pct_direct_cloudy: !input pct_direct_cloudy
+  pct_indirect_late_cloudy: !input pct_indirect_late_cloudy
   start_time: !input start_time
   end_time: !input end_time
   use_sun_times: !input use_sun_times
   morning_position: !input morning_position
   evening_position: !input evening_position
+  morning_position_cloudy: !input morning_position_cloudy
+  evening_position_cloudy: !input evening_position_cloudy
+  cloud_entity: !input cloud_entity
+  cloudy_threshold: !input cloudy_threshold
   night_close_enabled: !input night_close_enabled
   night_close_position: !input night_close_position
   disable_boolean: !input disable_boolean
   # commands: [{entity_id, position}, ...] to apply this run.
-  # First the active "phase" is decided, then it is turned into positions:
+  # First the active "phase" is decided, then it is turned into positions.
+  # When it is cloudy (cloud entity set and above the threshold) the "- cloudy"
+  # position variants are used for every phase except the night close.
   #   sun      -> sun-azimuth based positions per facade
   #   morning  -> morning_position for every cover (window mode, before sunrise)
   #   evening  -> evening_position for every cover (window mode, after sunset)
@@ -319,6 +431,15 @@ variables:
   commands: >
     {% set all_covers = covers_north + covers_east + covers_south + covers_west %}
     {% set ns = namespace(items=[]) %}
+    {% set cloudy = cloud_entity not in [none, '', 'none']
+                    and (states(cloud_entity) | is_number)
+                    and (states(cloud_entity) | float(0) > cloudy_threshold | float(0)) %}
+    {% set p_none    = pct_none_cloudy          if cloudy else pct_none %}
+    {% set p_early   = pct_indirect_early_cloudy if cloudy else pct_indirect_early %}
+    {% set p_direct  = pct_direct_cloudy        if cloudy else pct_direct %}
+    {% set p_late    = pct_indirect_late_cloudy if cloudy else pct_indirect_late %}
+    {% set p_morning = morning_position_cloudy  if cloudy else morning_position %}
+    {% set p_evening = evening_position_cloudy  if cloudy else evening_position %}
     {% if not (states(elevation_entity) | is_number) %}
       {# elevation unavailable -> do nothing #}
       {% set phase = 'skip' %}
@@ -359,13 +480,13 @@ variables:
       {% for g in groups %}
         {% set d = ((az - g.facing + 180) % 360) - 180 %}
         {% if d >= -45 and d < 45 %}
-          {% set pos = pct_direct %}
+          {% set pos = p_direct %}
         {% elif d >= -90 and d < -45 %}
-          {% set pos = pct_indirect_early %}
+          {% set pos = p_early %}
         {% elif d >= 45 and d < 90 %}
-          {% set pos = pct_indirect_late %}
+          {% set pos = p_late %}
         {% else %}
-          {% set pos = pct_none %}
+          {% set pos = p_none %}
         {% endif %}
         {% for cv in g.covers %}
           {% set ns.items = ns.items + [{'entity_id': cv, 'position': pos | int}] %}
@@ -373,11 +494,11 @@ variables:
       {% endfor %}
     {% elif phase == 'morning' %}
       {% for cv in all_covers %}
-        {% set ns.items = ns.items + [{'entity_id': cv, 'position': morning_position | int}] %}
+        {% set ns.items = ns.items + [{'entity_id': cv, 'position': p_morning | int}] %}
       {% endfor %}
     {% elif phase == 'evening' %}
       {% for cv in all_covers %}
-        {% set ns.items = ns.items + [{'entity_id': cv, 'position': evening_position | int}] %}
+        {% set ns.items = ns.items + [{'entity_id': cv, 'position': p_evening | int}] %}
       {% endfor %}
     {% elif phase == 'off' and night_close_enabled %}
       {% for cv in all_covers %}

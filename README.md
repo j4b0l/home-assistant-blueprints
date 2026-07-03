@@ -7,6 +7,8 @@ A small collection of Home Assistant automation blueprints.
 | IKEA BILRESA scroll wheel (shutter) | [`ikea-bilresa-scroll-wheel-shutter.yaml`](ikea-bilresa-scroll-wheel-shutter.yaml) | Control shutters with the IKEA BILRESA Matter scroll wheel. |
 | Sun Azimuth Cover Control | [`sun-azimuth-cover-control.yaml`](sun-azimuth-cover-control.yaml) | Position covers automatically based on where the sun is. |
 | Medicine Intake & Storage Tracker | [`medicine-intake-storage.yaml`](medicine-intake-storage.yaml) | Decrement medicine stock daily and warn before it runs out. |
+| Consumable Stock Tracker | [`consumable-stock-tracker.yaml`](consumable-stock-tracker.yaml) | Generic version of the above for any depleting consumable. |
+| Accumulation Limit Tracker | [`accumulation-limit-tracker.yaml`](accumulation-limit-tracker.yaml) | Grow a value daily and warn how many days until it hits its max. |
 
 ---
 
@@ -93,6 +95,21 @@ If the elevation entity is unavailable/non-numeric, the automation does nothing
 that run. A cover is only ever commanded when its current position differs from
 the target, avoiding needless motor movement.
 
+### Cloud coverage (optional)
+
+Provide a **Cloud coverage entity** (numeric, 0–100 %) and a **Cloudy above**
+threshold, and every phase — **except the night close** — gains a separate
+"– cloudy" position:
+
+- When cloud coverage is **strictly above** the threshold → the `– cloudy`
+  variant is used (`None – cloudy`, `Direct – cloudy`, `Morning – cloudy`, …).
+- Otherwise, or when no cloud entity is configured, the clear-sky positions are
+  used.
+
+Because there's no direct light on an overcast day, the cloudy defaults are more
+open than their clear-sky counterparts (e.g. `Direct` `30` → `Direct – cloudy`
+`70`). Cloud changes are applied on the regular 5-minute re-evaluation.
+
 ### Disable / guard
 
 An optional guard can stop the automation **completely** (no sun positioning
@@ -129,7 +146,10 @@ It runs in `mode: queued` so bursts of azimuth updates are handled in order.
 | **Sun elevation entity** | A `sensor`/`input_number` whose **state** is the elevation in degrees (positive = above horizon). Use `sensor.sun_solar_elevation`. |
 | **Building offset** | `-45°`…`+45°`, rotation of the building away from true N-S / E-W. |
 | **North / East / South / West covers** | Cover groups (each optional). |
-| **None / Indirect-early / Direct / Indirect-late** | Target position (0–100%) per zone. |
+| **None / Indirect-early / Direct / Indirect-late** | Clear-sky target position (0–100%) per zone. |
+| **… – cloudy** (per zone + morning/evening) | Position used when cloud coverage is above the threshold. |
+| **Cloud coverage entity** | Optional numeric `sensor`/`input_number` (0–100%). Empty = always clear-sky. |
+| **Cloudy above** | Coverage strictly above this % counts as cloudy. |
 | **Use sunrise/sunset instead of the time window** | Ignore the fixed times; active window becomes sunrise→sunset. |
 | **Allowed from / until** | Fixed schedule window (may cross midnight); ignored in sunrise/sunset mode. |
 | **Morning position** | All-cover position between start time and sunrise (time-window mode). |
@@ -222,3 +242,51 @@ The summary lists each low medicine, e.g.:
 
 - Two `input_number` helpers per medicine (one for stock, one for daily intake).
 - At least one mobile device running the Home Assistant companion app.
+
+---
+
+## Consumable Stock Tracker
+
+A generic version of the medicine tracker for **any depleting consumable**
+(coffee, water filters, pet food, printer paper, …). Same mechanics, neutral
+wording.
+
+Each item is a pair of `input_number` helpers — **Stock** (amount on hand) and
+**Daily use** (units consumed per day). Once a day it decrements stock by daily
+use (clamped at `0`), computes `stock ÷ daily use` days of supply, and pushes a
+summary of every item with fewer than the **Warn threshold (days)** left to the
+selected devices. Up to 10 items; empty slots ignored.
+
+Everything else — daily-only trigger (no double-count on restart), the
+`notify.mobile_app_<device>` delivery, intake-`0` never flagged, warn-`0`
+disables early warnings — behaves exactly like the medicine tracker.
+
+---
+
+## Accumulation Limit Tracker
+
+The **inverse** of the stock trackers: for values that **grow over time** and
+you want warning before they reach a ceiling (a savings goal, accumulated
+hours, a filling tank, a counter approaching a cap, …).
+
+Each item is a pair of `input_number` helpers — **Value** (current value) and
+**Daily increase** (growth per day). The ceiling is the **Value helper's own
+`max` setting**, so no separate limit input is needed — just set the max on each
+Value helper.
+
+Once a day it:
+
+1. Increases each value by its daily increase (clamped at the helper's `max`).
+2. Computes days until the limit: `(max − value) ÷ daily increase`.
+3. Pushes a summary of every item that will hit its max within the **Warn
+   threshold (days)** to the selected devices, e.g.:
+
+```
+📈 Approaching limit
+• Savings: 920/1000 (~4.0 day(s) to max, +20/day)
+• Hours: 96/100 (~2.0 day(s) to max, +2/day)
+```
+
+A daily increase of `0` (never grows) is never flagged, and an item already at
+its max reports `~0 day(s)`. Same delivery and trigger behaviour as the other
+trackers.

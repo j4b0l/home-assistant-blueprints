@@ -1,0 +1,425 @@
+blueprint:
+  name: Consumable Stock Tracker
+  description: |
+    Track any depleting consumable (coffee, filters, pet food, printer paper,
+    ...) and warn before it runs out.
+
+    Configure up to 10 items. Each item is a pair of number helpers:
+      - Stock     : current amount on hand (input_number)
+      - Daily use : how many units are consumed per day (input_number)
+
+    Once a day, at the configured time, the automation:
+      1. Decrements every stock helper by its daily use (clamped at 0).
+      2. Computes the remaining days of supply (stock / daily use).
+      3. Sends a summary of every item with fewer than the configured number of
+         days left to the selected devices.
+
+    Slots whose stock helper is empty are ignored; use as many as you need.
+
+    Version: 2026-07-02
+  domain: automation
+
+  input:
+    settings_section:
+      name: Settings
+      icon: mdi:cog
+      input:
+        notify_time:
+          name: Daily time
+          description: >
+            Time of day when values are updated and notifications are sent.
+          default: "08:00:00"
+          selector:
+            time: {}
+        warn_days:
+          name: Warn threshold (days)
+          description: >
+            Notify when an item has fewer than this many days of supply left (0-30). 0 disables early warnings.
+          default: 7
+          selector:
+            number:
+              min: 0
+              max: 30
+              step: 1
+              unit_of_measurement: days
+              mode: slider
+        notify_devices:
+          name: Notification targets
+          description: One or more mobile devices to notify (companion app).
+          selector:
+            device:
+              multiple: true
+              filter:
+                - integration: mobile_app
+        notify_title:
+          name: Notification title
+          default: "📦 Stock running low"
+          selector:
+            text: {}
+
+    item_1_section:
+      name: Item 1
+      icon: mdi:package-variant
+      collapsed: true
+      input:
+        item_1_name:
+          name: "Item 1: name"
+          description: Optional label used in the summary (defaults to the helper name).
+          default: ""
+          selector:
+            text: {}
+        item_1_stock:
+          name: "Item 1: stock helper"
+          default:
+          selector:
+            entity:
+              filter:
+                domain: input_number
+        item_1_use:
+          name: "Item 1: daily use helper"
+          default:
+          selector:
+            entity:
+              filter:
+                domain: input_number
+
+    item_2_section:
+      name: Item 2
+      icon: mdi:package-variant
+      collapsed: true
+      input:
+        item_2_name:
+          name: "Item 2: name"
+          description: Optional label used in the summary (defaults to the helper name).
+          default: ""
+          selector:
+            text: {}
+        item_2_stock:
+          name: "Item 2: stock helper"
+          default:
+          selector:
+            entity:
+              filter:
+                domain: input_number
+        item_2_use:
+          name: "Item 2: daily use helper"
+          default:
+          selector:
+            entity:
+              filter:
+                domain: input_number
+
+    item_3_section:
+      name: Item 3
+      icon: mdi:package-variant
+      collapsed: true
+      input:
+        item_3_name:
+          name: "Item 3: name"
+          description: Optional label used in the summary (defaults to the helper name).
+          default: ""
+          selector:
+            text: {}
+        item_3_stock:
+          name: "Item 3: stock helper"
+          default:
+          selector:
+            entity:
+              filter:
+                domain: input_number
+        item_3_use:
+          name: "Item 3: daily use helper"
+          default:
+          selector:
+            entity:
+              filter:
+                domain: input_number
+
+    item_4_section:
+      name: Item 4
+      icon: mdi:package-variant
+      collapsed: true
+      input:
+        item_4_name:
+          name: "Item 4: name"
+          description: Optional label used in the summary (defaults to the helper name).
+          default: ""
+          selector:
+            text: {}
+        item_4_stock:
+          name: "Item 4: stock helper"
+          default:
+          selector:
+            entity:
+              filter:
+                domain: input_number
+        item_4_use:
+          name: "Item 4: daily use helper"
+          default:
+          selector:
+            entity:
+              filter:
+                domain: input_number
+
+    item_5_section:
+      name: Item 5
+      icon: mdi:package-variant
+      collapsed: true
+      input:
+        item_5_name:
+          name: "Item 5: name"
+          description: Optional label used in the summary (defaults to the helper name).
+          default: ""
+          selector:
+            text: {}
+        item_5_stock:
+          name: "Item 5: stock helper"
+          default:
+          selector:
+            entity:
+              filter:
+                domain: input_number
+        item_5_use:
+          name: "Item 5: daily use helper"
+          default:
+          selector:
+            entity:
+              filter:
+                domain: input_number
+
+    item_6_section:
+      name: Item 6
+      icon: mdi:package-variant
+      collapsed: true
+      input:
+        item_6_name:
+          name: "Item 6: name"
+          description: Optional label used in the summary (defaults to the helper name).
+          default: ""
+          selector:
+            text: {}
+        item_6_stock:
+          name: "Item 6: stock helper"
+          default:
+          selector:
+            entity:
+              filter:
+                domain: input_number
+        item_6_use:
+          name: "Item 6: daily use helper"
+          default:
+          selector:
+            entity:
+              filter:
+                domain: input_number
+
+    item_7_section:
+      name: Item 7
+      icon: mdi:package-variant
+      collapsed: true
+      input:
+        item_7_name:
+          name: "Item 7: name"
+          description: Optional label used in the summary (defaults to the helper name).
+          default: ""
+          selector:
+            text: {}
+        item_7_stock:
+          name: "Item 7: stock helper"
+          default:
+          selector:
+            entity:
+              filter:
+                domain: input_number
+        item_7_use:
+          name: "Item 7: daily use helper"
+          default:
+          selector:
+            entity:
+              filter:
+                domain: input_number
+
+    item_8_section:
+      name: Item 8
+      icon: mdi:package-variant
+      collapsed: true
+      input:
+        item_8_name:
+          name: "Item 8: name"
+          description: Optional label used in the summary (defaults to the helper name).
+          default: ""
+          selector:
+            text: {}
+        item_8_stock:
+          name: "Item 8: stock helper"
+          default:
+          selector:
+            entity:
+              filter:
+                domain: input_number
+        item_8_use:
+          name: "Item 8: daily use helper"
+          default:
+          selector:
+            entity:
+              filter:
+                domain: input_number
+
+    item_9_section:
+      name: Item 9
+      icon: mdi:package-variant
+      collapsed: true
+      input:
+        item_9_name:
+          name: "Item 9: name"
+          description: Optional label used in the summary (defaults to the helper name).
+          default: ""
+          selector:
+            text: {}
+        item_9_stock:
+          name: "Item 9: stock helper"
+          default:
+          selector:
+            entity:
+              filter:
+                domain: input_number
+        item_9_use:
+          name: "Item 9: daily use helper"
+          default:
+          selector:
+            entity:
+              filter:
+                domain: input_number
+
+    item_10_section:
+      name: Item 10
+      icon: mdi:package-variant
+      collapsed: true
+      input:
+        item_10_name:
+          name: "Item 10: name"
+          description: Optional label used in the summary (defaults to the helper name).
+          default: ""
+          selector:
+            text: {}
+        item_10_stock:
+          name: "Item 10: stock helper"
+          default:
+          selector:
+            entity:
+              filter:
+                domain: input_number
+        item_10_use:
+          name: "Item 10: daily use helper"
+          default:
+          selector:
+            entity:
+              filter:
+                domain: input_number
+
+variables:
+  warn_days: !input warn_days
+  item_1_name: !input item_1_name
+  item_1_stock: !input item_1_stock
+  item_1_use: !input item_1_use
+  item_2_name: !input item_2_name
+  item_2_stock: !input item_2_stock
+  item_2_use: !input item_2_use
+  item_3_name: !input item_3_name
+  item_3_stock: !input item_3_stock
+  item_3_use: !input item_3_use
+  item_4_name: !input item_4_name
+  item_4_stock: !input item_4_stock
+  item_4_use: !input item_4_use
+  item_5_name: !input item_5_name
+  item_5_stock: !input item_5_stock
+  item_5_use: !input item_5_use
+  item_6_name: !input item_6_name
+  item_6_stock: !input item_6_stock
+  item_6_use: !input item_6_use
+  item_7_name: !input item_7_name
+  item_7_stock: !input item_7_stock
+  item_7_use: !input item_7_use
+  item_8_name: !input item_8_name
+  item_8_stock: !input item_8_stock
+  item_8_use: !input item_8_use
+  item_9_name: !input item_9_name
+  item_9_stock: !input item_9_stock
+  item_9_use: !input item_9_use
+  item_10_name: !input item_10_name
+  item_10_stock: !input item_10_stock
+  item_10_use: !input item_10_use
+  # Configured slots that actually have both helpers set.
+  items: >
+    {% set raw = [
+      {'name': item_1_name, 'a': item_1_stock, 'b': item_1_use},
+      {'name': item_2_name, 'a': item_2_stock, 'b': item_2_use},
+      {'name': item_3_name, 'a': item_3_stock, 'b': item_3_use},
+      {'name': item_4_name, 'a': item_4_stock, 'b': item_4_use},
+      {'name': item_5_name, 'a': item_5_stock, 'b': item_5_use},
+      {'name': item_6_name, 'a': item_6_stock, 'b': item_6_use},
+      {'name': item_7_name, 'a': item_7_stock, 'b': item_7_use},
+      {'name': item_8_name, 'a': item_8_stock, 'b': item_8_use},
+      {'name': item_9_name, 'a': item_9_stock, 'b': item_9_use},
+      {'name': item_10_name, 'a': item_10_stock, 'b': item_10_use}] %}
+    {% set ns = namespace(items=[]) %}
+    {% for m in raw %}
+      {% if m.a not in [none, '', 'none'] and m.b not in [none, '', 'none'] %}
+        {% set ns.items = ns.items + [m] %}
+      {% endif %}
+    {% endfor %}
+    {{ ns.items }}
+
+trigger:
+  - platform: time
+    at: !input notify_time
+
+action:
+  - variables:
+      rows: >
+        {% set ns = namespace(rows=[]) %}
+        {% for m in items %}
+          {% set cur = states(m.a) | float(0) %}
+          {% set use = states(m.b) | float(0) %}
+          {% set newv = [cur - use, 0] | max %}
+          {% set days = (newv / use) if use > 0 else -1 %}
+          {% set label = m.name if m.name not in [none, ''] else (state_attr(m.a, 'friendly_name') or m.a) %}
+          {% set ns.rows = ns.rows + [{'target': m.a, 'new': newv, 'rate': use, 'days': days, 'label': label}] %}
+        {% endfor %}
+        {{ ns.rows }}
+  # 1) Decrement every stock helper by its daily use.
+  - repeat:
+      for_each: "{{ rows }}"
+      sequence:
+        - service: input_number.set_value
+          target:
+            entity_id: "{{ repeat.item.target }}"
+          data:
+            value: "{{ repeat.item.new }}"
+  # 2) Build the "running low" summary and notify if anything is low.
+  - variables:
+      low: >
+        {{ rows | selectattr('days', 'ge', 0)
+                | selectattr('days', 'lt', warn_days | float(0)) | list }}
+      summary: >-
+        {%- set ns2 = namespace(lines=[]) -%}
+        {%- for r in low -%}
+          {%- set ns2.lines = ns2.lines + ['• ' ~ r.label ~ ': ' ~ (r.new | round(0)) ~ ' left (~' ~ (r.days | round(1)) ~ ' day(s), ' ~ (r.rate | round(0)) ~ '/day)'] -%}
+        {%- endfor -%}
+        {{ ns2.lines | join('\n') }}
+  - if:
+      - condition: template
+        value_template: "{{ low | count > 0 }}"
+    then:
+      - repeat:
+          for_each: !input notify_devices
+          sequence:
+            # Device actions reject a templated device_id, so call the mobile_app
+            # notify service built from the device's (original) name instead.
+            - service: >-
+                notify.mobile_app_{{ device_attr(repeat.item, 'name') | slugify }}
+              data:
+                title: !input notify_title
+                message: "{{ summary }}"
+
+mode: single
