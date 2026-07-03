@@ -1,0 +1,1309 @@
+blueprint:
+  name: Sun Azimuth Cover Control (Seasonal)
+  description: |
+    Position covers by sun azimuth, with per-side per-season target positions,
+    cloud-coverage offsets, and condition overrides.
+
+    Derived from "Sun Azimuth Cover Control". Each facade (north/east/south/west)
+    is assigned a zone from the sun azimuth (none / indirect-early / direct /
+    indirect-late), and the target position for that zone is configured
+    separately for every side AND every season (4 x 4 x 4 = 64 values).
+
+    Cloud coverage adds an opening offset. Three thresholds split coverage into
+    four bands (0->slightly, slightly->cloudy, cloudy->heavily, heavily->100),
+    each with its own offset added to the base position (night close excluded).
+
+    Three condition overrides run before everything else, in this precedence:
+      1. Pause if...         -> make no changes at all
+      2. Always open if...   -> force all covers to 100%
+      3. Always closed if... -> force all covers to 0%
+      otherwise              -> normal per-side/season + cloud logic
+
+    Version: 2026-07-03
+  domain: automation
+
+  input:
+    sun_section:
+      name: Sun & building
+      icon: mdi:weather-sunny
+      input:
+        azimuth_entity:
+          name: Sun azimuth entity
+          description: Numeric entity, azimuth in degrees (0-360), e.g. sensor.sun_solar_azimuth.
+          selector:
+            entity:
+              filter:
+                domain:
+                  - sensor
+                  - input_number
+        elevation_entity:
+          name: Sun elevation entity
+          description: Numeric entity, elevation in degrees, e.g. sensor.sun_solar_elevation.
+          selector:
+            entity:
+              filter:
+                domain:
+                  - sensor
+                  - input_number
+        building_offset:
+          name: Building offset
+          description: Rotation of the building from true N-S/E-W (-45 to +45).
+          default: 0
+          selector:
+            number:
+              min: -45
+              max: 45
+              step: 1
+              unit_of_measurement: "°"
+              mode: slider
+
+    season_section:
+      name: Season
+      icon: mdi:sun-snowflake-variant
+      description: >
+        Entity whose state is the current season, so positions can be set per
+        season.
+      input:
+        season_entity:
+          name: Season entity
+          description: >
+            State must be one of: spring, summer, autumn (or fall), winter.
+            If empty or unrecognised, the "summer" positions are used.
+          default:
+          selector:
+            entity:
+              filter:
+                - domain: sensor
+                - domain: input_select
+                - domain: input_text
+
+    groups_section:
+      name: Cover groups
+      icon: mdi:window-shutter
+      description: One cover group per facade. Any group may be left empty.
+      input:
+        covers_north:
+          name: North covers
+          default: []
+          selector:
+            entity:
+              multiple: true
+              filter:
+                domain: cover
+        covers_east:
+          name: East covers
+          default: []
+          selector:
+            entity:
+              multiple: true
+              filter:
+                domain: cover
+        covers_south:
+          name: South covers
+          default: []
+          selector:
+            entity:
+              multiple: true
+              filter:
+                domain: cover
+        covers_west:
+          name: West covers
+          default: []
+          selector:
+            entity:
+              multiple: true
+              filter:
+                domain: cover
+
+    cloud_section:
+      name: Cloud coverage
+      icon: mdi:weather-partly-cloudy
+      description: >
+        Optional. Three thresholds split cloud coverage into four bands; each
+        band adds an opening offset to the base position (night close excluded).
+        Leave the entity empty to disable (offset 0).
+      input:
+        cloud_entity:
+          name: Cloud coverage entity
+          description: Numeric entity, cloud coverage in percent (0-100).
+          default:
+          selector:
+            entity:
+              filter:
+                - domain: sensor
+                - domain: input_number
+        slightly_cloudy_at:
+          name: "Slightly cloudy above (%)"
+          default: 25
+          selector:
+            number:
+              min: 0
+              max: 100
+              step: 1
+              unit_of_measurement: "%"
+              mode: slider
+        cloudy_at:
+          name: "Cloudy above (%)"
+          default: 50
+          selector:
+            number:
+              min: 0
+              max: 100
+              step: 1
+              unit_of_measurement: "%"
+              mode: slider
+        heavily_cloudy_at:
+          name: "Heavily cloudy above (%)"
+          default: 75
+          selector:
+            number:
+              min: 0
+              max: 100
+              step: 1
+              unit_of_measurement: "%"
+              mode: slider
+        cloud_offset_1:
+          name: "Offset - 0% to slightly cloudy"
+          default: 0
+          selector:
+            number:
+              min: 0
+              max: 100
+              step: 1
+              unit_of_measurement: "%"
+              mode: slider
+        cloud_offset_2:
+          name: "Offset - slightly to cloudy"
+          default: 15
+          selector:
+            number:
+              min: 0
+              max: 100
+              step: 1
+              unit_of_measurement: "%"
+              mode: slider
+        cloud_offset_3:
+          name: "Offset - cloudy to heavily cloudy"
+          default: 30
+          selector:
+            number:
+              min: 0
+              max: 100
+              step: 1
+              unit_of_measurement: "%"
+              mode: slider
+        cloud_offset_4:
+          name: "Offset - heavily cloudy to 100%"
+          default: 45
+          selector:
+            number:
+              min: 0
+              max: 100
+              step: 1
+              unit_of_measurement: "%"
+              mode: slider
+
+    pos_north_spring_section:
+      name: "North · Spring"
+      icon: mdi:window-shutter
+      collapsed: true
+      input:
+        pos_north_spring_none:
+          name: "None (sun not on facade)"
+          default: 100
+          selector:
+            number:
+              min: 0
+              max: 100
+              step: 1
+              unit_of_measurement: "%"
+              mode: slider
+        pos_north_spring_early:
+          name: "Indirect - early (sun arriving)"
+          default: 70
+          selector:
+            number:
+              min: 0
+              max: 100
+              step: 1
+              unit_of_measurement: "%"
+              mode: slider
+        pos_north_spring_direct:
+          name: "Direct (sun straight on facade)"
+          default: 30
+          selector:
+            number:
+              min: 0
+              max: 100
+              step: 1
+              unit_of_measurement: "%"
+              mode: slider
+        pos_north_spring_late:
+          name: "Indirect - late (sun leaving)"
+          default: 70
+          selector:
+            number:
+              min: 0
+              max: 100
+              step: 1
+              unit_of_measurement: "%"
+              mode: slider
+
+    pos_north_summer_section:
+      name: "North · Summer"
+      icon: mdi:window-shutter
+      collapsed: true
+      input:
+        pos_north_summer_none:
+          name: "None (sun not on facade)"
+          default: 100
+          selector:
+            number:
+              min: 0
+              max: 100
+              step: 1
+              unit_of_measurement: "%"
+              mode: slider
+        pos_north_summer_early:
+          name: "Indirect - early (sun arriving)"
+          default: 70
+          selector:
+            number:
+              min: 0
+              max: 100
+              step: 1
+              unit_of_measurement: "%"
+              mode: slider
+        pos_north_summer_direct:
+          name: "Direct (sun straight on facade)"
+          default: 30
+          selector:
+            number:
+              min: 0
+              max: 100
+              step: 1
+              unit_of_measurement: "%"
+              mode: slider
+        pos_north_summer_late:
+          name: "Indirect - late (sun leaving)"
+          default: 70
+          selector:
+            number:
+              min: 0
+              max: 100
+              step: 1
+              unit_of_measurement: "%"
+              mode: slider
+
+    pos_north_autumn_section:
+      name: "North · Autumn"
+      icon: mdi:window-shutter
+      collapsed: true
+      input:
+        pos_north_autumn_none:
+          name: "None (sun not on facade)"
+          default: 100
+          selector:
+            number:
+              min: 0
+              max: 100
+              step: 1
+              unit_of_measurement: "%"
+              mode: slider
+        pos_north_autumn_early:
+          name: "Indirect - early (sun arriving)"
+          default: 70
+          selector:
+            number:
+              min: 0
+              max: 100
+              step: 1
+              unit_of_measurement: "%"
+              mode: slider
+        pos_north_autumn_direct:
+          name: "Direct (sun straight on facade)"
+          default: 30
+          selector:
+            number:
+              min: 0
+              max: 100
+              step: 1
+              unit_of_measurement: "%"
+              mode: slider
+        pos_north_autumn_late:
+          name: "Indirect - late (sun leaving)"
+          default: 70
+          selector:
+            number:
+              min: 0
+              max: 100
+              step: 1
+              unit_of_measurement: "%"
+              mode: slider
+
+    pos_north_winter_section:
+      name: "North · Winter"
+      icon: mdi:window-shutter
+      collapsed: true
+      input:
+        pos_north_winter_none:
+          name: "None (sun not on facade)"
+          default: 100
+          selector:
+            number:
+              min: 0
+              max: 100
+              step: 1
+              unit_of_measurement: "%"
+              mode: slider
+        pos_north_winter_early:
+          name: "Indirect - early (sun arriving)"
+          default: 70
+          selector:
+            number:
+              min: 0
+              max: 100
+              step: 1
+              unit_of_measurement: "%"
+              mode: slider
+        pos_north_winter_direct:
+          name: "Direct (sun straight on facade)"
+          default: 30
+          selector:
+            number:
+              min: 0
+              max: 100
+              step: 1
+              unit_of_measurement: "%"
+              mode: slider
+        pos_north_winter_late:
+          name: "Indirect - late (sun leaving)"
+          default: 70
+          selector:
+            number:
+              min: 0
+              max: 100
+              step: 1
+              unit_of_measurement: "%"
+              mode: slider
+
+    pos_east_spring_section:
+      name: "East · Spring"
+      icon: mdi:window-shutter
+      collapsed: true
+      input:
+        pos_east_spring_none:
+          name: "None (sun not on facade)"
+          default: 100
+          selector:
+            number:
+              min: 0
+              max: 100
+              step: 1
+              unit_of_measurement: "%"
+              mode: slider
+        pos_east_spring_early:
+          name: "Indirect - early (sun arriving)"
+          default: 70
+          selector:
+            number:
+              min: 0
+              max: 100
+              step: 1
+              unit_of_measurement: "%"
+              mode: slider
+        pos_east_spring_direct:
+          name: "Direct (sun straight on facade)"
+          default: 30
+          selector:
+            number:
+              min: 0
+              max: 100
+              step: 1
+              unit_of_measurement: "%"
+              mode: slider
+        pos_east_spring_late:
+          name: "Indirect - late (sun leaving)"
+          default: 70
+          selector:
+            number:
+              min: 0
+              max: 100
+              step: 1
+              unit_of_measurement: "%"
+              mode: slider
+
+    pos_east_summer_section:
+      name: "East · Summer"
+      icon: mdi:window-shutter
+      collapsed: true
+      input:
+        pos_east_summer_none:
+          name: "None (sun not on facade)"
+          default: 100
+          selector:
+            number:
+              min: 0
+              max: 100
+              step: 1
+              unit_of_measurement: "%"
+              mode: slider
+        pos_east_summer_early:
+          name: "Indirect - early (sun arriving)"
+          default: 70
+          selector:
+            number:
+              min: 0
+              max: 100
+              step: 1
+              unit_of_measurement: "%"
+              mode: slider
+        pos_east_summer_direct:
+          name: "Direct (sun straight on facade)"
+          default: 30
+          selector:
+            number:
+              min: 0
+              max: 100
+              step: 1
+              unit_of_measurement: "%"
+              mode: slider
+        pos_east_summer_late:
+          name: "Indirect - late (sun leaving)"
+          default: 70
+          selector:
+            number:
+              min: 0
+              max: 100
+              step: 1
+              unit_of_measurement: "%"
+              mode: slider
+
+    pos_east_autumn_section:
+      name: "East · Autumn"
+      icon: mdi:window-shutter
+      collapsed: true
+      input:
+        pos_east_autumn_none:
+          name: "None (sun not on facade)"
+          default: 100
+          selector:
+            number:
+              min: 0
+              max: 100
+              step: 1
+              unit_of_measurement: "%"
+              mode: slider
+        pos_east_autumn_early:
+          name: "Indirect - early (sun arriving)"
+          default: 70
+          selector:
+            number:
+              min: 0
+              max: 100
+              step: 1
+              unit_of_measurement: "%"
+              mode: slider
+        pos_east_autumn_direct:
+          name: "Direct (sun straight on facade)"
+          default: 30
+          selector:
+            number:
+              min: 0
+              max: 100
+              step: 1
+              unit_of_measurement: "%"
+              mode: slider
+        pos_east_autumn_late:
+          name: "Indirect - late (sun leaving)"
+          default: 70
+          selector:
+            number:
+              min: 0
+              max: 100
+              step: 1
+              unit_of_measurement: "%"
+              mode: slider
+
+    pos_east_winter_section:
+      name: "East · Winter"
+      icon: mdi:window-shutter
+      collapsed: true
+      input:
+        pos_east_winter_none:
+          name: "None (sun not on facade)"
+          default: 100
+          selector:
+            number:
+              min: 0
+              max: 100
+              step: 1
+              unit_of_measurement: "%"
+              mode: slider
+        pos_east_winter_early:
+          name: "Indirect - early (sun arriving)"
+          default: 70
+          selector:
+            number:
+              min: 0
+              max: 100
+              step: 1
+              unit_of_measurement: "%"
+              mode: slider
+        pos_east_winter_direct:
+          name: "Direct (sun straight on facade)"
+          default: 30
+          selector:
+            number:
+              min: 0
+              max: 100
+              step: 1
+              unit_of_measurement: "%"
+              mode: slider
+        pos_east_winter_late:
+          name: "Indirect - late (sun leaving)"
+          default: 70
+          selector:
+            number:
+              min: 0
+              max: 100
+              step: 1
+              unit_of_measurement: "%"
+              mode: slider
+
+    pos_south_spring_section:
+      name: "South · Spring"
+      icon: mdi:window-shutter
+      collapsed: true
+      input:
+        pos_south_spring_none:
+          name: "None (sun not on facade)"
+          default: 100
+          selector:
+            number:
+              min: 0
+              max: 100
+              step: 1
+              unit_of_measurement: "%"
+              mode: slider
+        pos_south_spring_early:
+          name: "Indirect - early (sun arriving)"
+          default: 70
+          selector:
+            number:
+              min: 0
+              max: 100
+              step: 1
+              unit_of_measurement: "%"
+              mode: slider
+        pos_south_spring_direct:
+          name: "Direct (sun straight on facade)"
+          default: 30
+          selector:
+            number:
+              min: 0
+              max: 100
+              step: 1
+              unit_of_measurement: "%"
+              mode: slider
+        pos_south_spring_late:
+          name: "Indirect - late (sun leaving)"
+          default: 70
+          selector:
+            number:
+              min: 0
+              max: 100
+              step: 1
+              unit_of_measurement: "%"
+              mode: slider
+
+    pos_south_summer_section:
+      name: "South · Summer"
+      icon: mdi:window-shutter
+      collapsed: true
+      input:
+        pos_south_summer_none:
+          name: "None (sun not on facade)"
+          default: 100
+          selector:
+            number:
+              min: 0
+              max: 100
+              step: 1
+              unit_of_measurement: "%"
+              mode: slider
+        pos_south_summer_early:
+          name: "Indirect - early (sun arriving)"
+          default: 70
+          selector:
+            number:
+              min: 0
+              max: 100
+              step: 1
+              unit_of_measurement: "%"
+              mode: slider
+        pos_south_summer_direct:
+          name: "Direct (sun straight on facade)"
+          default: 30
+          selector:
+            number:
+              min: 0
+              max: 100
+              step: 1
+              unit_of_measurement: "%"
+              mode: slider
+        pos_south_summer_late:
+          name: "Indirect - late (sun leaving)"
+          default: 70
+          selector:
+            number:
+              min: 0
+              max: 100
+              step: 1
+              unit_of_measurement: "%"
+              mode: slider
+
+    pos_south_autumn_section:
+      name: "South · Autumn"
+      icon: mdi:window-shutter
+      collapsed: true
+      input:
+        pos_south_autumn_none:
+          name: "None (sun not on facade)"
+          default: 100
+          selector:
+            number:
+              min: 0
+              max: 100
+              step: 1
+              unit_of_measurement: "%"
+              mode: slider
+        pos_south_autumn_early:
+          name: "Indirect - early (sun arriving)"
+          default: 70
+          selector:
+            number:
+              min: 0
+              max: 100
+              step: 1
+              unit_of_measurement: "%"
+              mode: slider
+        pos_south_autumn_direct:
+          name: "Direct (sun straight on facade)"
+          default: 30
+          selector:
+            number:
+              min: 0
+              max: 100
+              step: 1
+              unit_of_measurement: "%"
+              mode: slider
+        pos_south_autumn_late:
+          name: "Indirect - late (sun leaving)"
+          default: 70
+          selector:
+            number:
+              min: 0
+              max: 100
+              step: 1
+              unit_of_measurement: "%"
+              mode: slider
+
+    pos_south_winter_section:
+      name: "South · Winter"
+      icon: mdi:window-shutter
+      collapsed: true
+      input:
+        pos_south_winter_none:
+          name: "None (sun not on facade)"
+          default: 100
+          selector:
+            number:
+              min: 0
+              max: 100
+              step: 1
+              unit_of_measurement: "%"
+              mode: slider
+        pos_south_winter_early:
+          name: "Indirect - early (sun arriving)"
+          default: 70
+          selector:
+            number:
+              min: 0
+              max: 100
+              step: 1
+              unit_of_measurement: "%"
+              mode: slider
+        pos_south_winter_direct:
+          name: "Direct (sun straight on facade)"
+          default: 30
+          selector:
+            number:
+              min: 0
+              max: 100
+              step: 1
+              unit_of_measurement: "%"
+              mode: slider
+        pos_south_winter_late:
+          name: "Indirect - late (sun leaving)"
+          default: 70
+          selector:
+            number:
+              min: 0
+              max: 100
+              step: 1
+              unit_of_measurement: "%"
+              mode: slider
+
+    pos_west_spring_section:
+      name: "West · Spring"
+      icon: mdi:window-shutter
+      collapsed: true
+      input:
+        pos_west_spring_none:
+          name: "None (sun not on facade)"
+          default: 100
+          selector:
+            number:
+              min: 0
+              max: 100
+              step: 1
+              unit_of_measurement: "%"
+              mode: slider
+        pos_west_spring_early:
+          name: "Indirect - early (sun arriving)"
+          default: 70
+          selector:
+            number:
+              min: 0
+              max: 100
+              step: 1
+              unit_of_measurement: "%"
+              mode: slider
+        pos_west_spring_direct:
+          name: "Direct (sun straight on facade)"
+          default: 30
+          selector:
+            number:
+              min: 0
+              max: 100
+              step: 1
+              unit_of_measurement: "%"
+              mode: slider
+        pos_west_spring_late:
+          name: "Indirect - late (sun leaving)"
+          default: 70
+          selector:
+            number:
+              min: 0
+              max: 100
+              step: 1
+              unit_of_measurement: "%"
+              mode: slider
+
+    pos_west_summer_section:
+      name: "West · Summer"
+      icon: mdi:window-shutter
+      collapsed: true
+      input:
+        pos_west_summer_none:
+          name: "None (sun not on facade)"
+          default: 100
+          selector:
+            number:
+              min: 0
+              max: 100
+              step: 1
+              unit_of_measurement: "%"
+              mode: slider
+        pos_west_summer_early:
+          name: "Indirect - early (sun arriving)"
+          default: 70
+          selector:
+            number:
+              min: 0
+              max: 100
+              step: 1
+              unit_of_measurement: "%"
+              mode: slider
+        pos_west_summer_direct:
+          name: "Direct (sun straight on facade)"
+          default: 30
+          selector:
+            number:
+              min: 0
+              max: 100
+              step: 1
+              unit_of_measurement: "%"
+              mode: slider
+        pos_west_summer_late:
+          name: "Indirect - late (sun leaving)"
+          default: 70
+          selector:
+            number:
+              min: 0
+              max: 100
+              step: 1
+              unit_of_measurement: "%"
+              mode: slider
+
+    pos_west_autumn_section:
+      name: "West · Autumn"
+      icon: mdi:window-shutter
+      collapsed: true
+      input:
+        pos_west_autumn_none:
+          name: "None (sun not on facade)"
+          default: 100
+          selector:
+            number:
+              min: 0
+              max: 100
+              step: 1
+              unit_of_measurement: "%"
+              mode: slider
+        pos_west_autumn_early:
+          name: "Indirect - early (sun arriving)"
+          default: 70
+          selector:
+            number:
+              min: 0
+              max: 100
+              step: 1
+              unit_of_measurement: "%"
+              mode: slider
+        pos_west_autumn_direct:
+          name: "Direct (sun straight on facade)"
+          default: 30
+          selector:
+            number:
+              min: 0
+              max: 100
+              step: 1
+              unit_of_measurement: "%"
+              mode: slider
+        pos_west_autumn_late:
+          name: "Indirect - late (sun leaving)"
+          default: 70
+          selector:
+            number:
+              min: 0
+              max: 100
+              step: 1
+              unit_of_measurement: "%"
+              mode: slider
+
+    pos_west_winter_section:
+      name: "West · Winter"
+      icon: mdi:window-shutter
+      collapsed: true
+      input:
+        pos_west_winter_none:
+          name: "None (sun not on facade)"
+          default: 100
+          selector:
+            number:
+              min: 0
+              max: 100
+              step: 1
+              unit_of_measurement: "%"
+              mode: slider
+        pos_west_winter_early:
+          name: "Indirect - early (sun arriving)"
+          default: 70
+          selector:
+            number:
+              min: 0
+              max: 100
+              step: 1
+              unit_of_measurement: "%"
+              mode: slider
+        pos_west_winter_direct:
+          name: "Direct (sun straight on facade)"
+          default: 30
+          selector:
+            number:
+              min: 0
+              max: 100
+              step: 1
+              unit_of_measurement: "%"
+              mode: slider
+        pos_west_winter_late:
+          name: "Indirect - late (sun leaving)"
+          default: 70
+          selector:
+            number:
+              min: 0
+              max: 100
+              step: 1
+              unit_of_measurement: "%"
+              mode: slider
+
+    schedule_section:
+      name: Schedule
+      icon: mdi:clock-outline
+      description: >
+        When covers may move. Fixed time window, or - with the toggle - the
+        sunrise/sunset window from the elevation entity.
+      input:
+        use_sun_times:
+          name: Use sunrise/sunset instead of the time window
+          default: false
+          selector:
+            boolean: {}
+        start_time:
+          name: Allowed from
+          default: "08:00:00"
+          selector:
+            time: {}
+        end_time:
+          name: Allowed until
+          default: "20:00:00"
+          selector:
+            time: {}
+        morning_position:
+          name: Morning position (before sunrise)
+          default: 100
+          selector:
+            number:
+              min: 0
+              max: 100
+              step: 1
+              unit_of_measurement: "%"
+              mode: slider
+        evening_position:
+          name: Evening position (after sunset)
+          default: 100
+          selector:
+            number:
+              min: 0
+              max: 100
+              step: 1
+              unit_of_measurement: "%"
+              mode: slider
+        night_close_enabled:
+          name: Close fully at night
+          default: false
+          selector:
+            boolean: {}
+        night_close_position:
+          name: Night position
+          default: 0
+          selector:
+            number:
+              min: 0
+              max: 100
+              step: 1
+              unit_of_measurement: "%"
+              mode: slider
+
+    overrides_section:
+      name: Overrides
+      icon: mdi:gesture-tap-button
+      description: >
+        Condition overrides, evaluated before the normal logic.
+        Precedence: pause > always open > always closed > normal.
+      input:
+        pause_condition:
+          name: Pause if...
+          description: >
+            When any of these conditions is true, the automation makes no
+            changes at all (covers stay where they are).
+          default: []
+          selector:
+            condition: {}
+        always_open_condition:
+          name: Always open if...
+          description: >
+            When any of these conditions is true, all covers are set fully open
+            (100%) and normal positioning is skipped.
+          default: []
+          selector:
+            condition: {}
+        always_closed_condition:
+          name: Always closed if...
+          description: >
+            When any of these conditions is true, all covers are set fully
+            closed (0%) and normal positioning is skipped.
+          default: []
+          selector:
+            condition: {}
+
+variables:
+  azimuth_entity: !input azimuth_entity
+  elevation_entity: !input elevation_entity
+  building_offset: !input building_offset
+  season_entity: !input season_entity
+  covers_north: !input covers_north
+  covers_east: !input covers_east
+  covers_south: !input covers_south
+  covers_west: !input covers_west
+  cloud_entity: !input cloud_entity
+  slightly_cloudy_at: !input slightly_cloudy_at
+  cloudy_at: !input cloudy_at
+  heavily_cloudy_at: !input heavily_cloudy_at
+  cloud_offset_1: !input cloud_offset_1
+  cloud_offset_2: !input cloud_offset_2
+  cloud_offset_3: !input cloud_offset_3
+  cloud_offset_4: !input cloud_offset_4
+  start_time: !input start_time
+  end_time: !input end_time
+  use_sun_times: !input use_sun_times
+  morning_position: !input morning_position
+  evening_position: !input evening_position
+  night_close_enabled: !input night_close_enabled
+  night_close_position: !input night_close_position
+  open_cfg: !input always_open_condition
+  closed_cfg: !input always_closed_condition
+  pause_cfg: !input pause_condition
+  all_covers: "{{ covers_north + covers_east + covers_south + covers_west }}"
+  pos_north_spring_none: !input pos_north_spring_none
+  pos_north_spring_early: !input pos_north_spring_early
+  pos_north_spring_direct: !input pos_north_spring_direct
+  pos_north_spring_late: !input pos_north_spring_late
+  pos_north_summer_none: !input pos_north_summer_none
+  pos_north_summer_early: !input pos_north_summer_early
+  pos_north_summer_direct: !input pos_north_summer_direct
+  pos_north_summer_late: !input pos_north_summer_late
+  pos_north_autumn_none: !input pos_north_autumn_none
+  pos_north_autumn_early: !input pos_north_autumn_early
+  pos_north_autumn_direct: !input pos_north_autumn_direct
+  pos_north_autumn_late: !input pos_north_autumn_late
+  pos_north_winter_none: !input pos_north_winter_none
+  pos_north_winter_early: !input pos_north_winter_early
+  pos_north_winter_direct: !input pos_north_winter_direct
+  pos_north_winter_late: !input pos_north_winter_late
+  pos_east_spring_none: !input pos_east_spring_none
+  pos_east_spring_early: !input pos_east_spring_early
+  pos_east_spring_direct: !input pos_east_spring_direct
+  pos_east_spring_late: !input pos_east_spring_late
+  pos_east_summer_none: !input pos_east_summer_none
+  pos_east_summer_early: !input pos_east_summer_early
+  pos_east_summer_direct: !input pos_east_summer_direct
+  pos_east_summer_late: !input pos_east_summer_late
+  pos_east_autumn_none: !input pos_east_autumn_none
+  pos_east_autumn_early: !input pos_east_autumn_early
+  pos_east_autumn_direct: !input pos_east_autumn_direct
+  pos_east_autumn_late: !input pos_east_autumn_late
+  pos_east_winter_none: !input pos_east_winter_none
+  pos_east_winter_early: !input pos_east_winter_early
+  pos_east_winter_direct: !input pos_east_winter_direct
+  pos_east_winter_late: !input pos_east_winter_late
+  pos_south_spring_none: !input pos_south_spring_none
+  pos_south_spring_early: !input pos_south_spring_early
+  pos_south_spring_direct: !input pos_south_spring_direct
+  pos_south_spring_late: !input pos_south_spring_late
+  pos_south_summer_none: !input pos_south_summer_none
+  pos_south_summer_early: !input pos_south_summer_early
+  pos_south_summer_direct: !input pos_south_summer_direct
+  pos_south_summer_late: !input pos_south_summer_late
+  pos_south_autumn_none: !input pos_south_autumn_none
+  pos_south_autumn_early: !input pos_south_autumn_early
+  pos_south_autumn_direct: !input pos_south_autumn_direct
+  pos_south_autumn_late: !input pos_south_autumn_late
+  pos_south_winter_none: !input pos_south_winter_none
+  pos_south_winter_early: !input pos_south_winter_early
+  pos_south_winter_direct: !input pos_south_winter_direct
+  pos_south_winter_late: !input pos_south_winter_late
+  pos_west_spring_none: !input pos_west_spring_none
+  pos_west_spring_early: !input pos_west_spring_early
+  pos_west_spring_direct: !input pos_west_spring_direct
+  pos_west_spring_late: !input pos_west_spring_late
+  pos_west_summer_none: !input pos_west_summer_none
+  pos_west_summer_early: !input pos_west_summer_early
+  pos_west_summer_direct: !input pos_west_summer_direct
+  pos_west_summer_late: !input pos_west_summer_late
+  pos_west_autumn_none: !input pos_west_autumn_none
+  pos_west_autumn_early: !input pos_west_autumn_early
+  pos_west_autumn_direct: !input pos_west_autumn_direct
+  pos_west_autumn_late: !input pos_west_autumn_late
+  pos_west_winter_none: !input pos_west_winter_none
+  pos_west_winter_early: !input pos_west_winter_early
+  pos_west_winter_direct: !input pos_west_winter_direct
+  pos_west_winter_late: !input pos_west_winter_late
+
+  commands: >
+    {% set ns = namespace(items=[]) %}
+    {% set s_raw = (states(season_entity) | lower) if season_entity not in [none, '', 'none'] else 'summer' %}
+    {% set season = 'autumn' if s_raw in ['autumn', 'fall'] else (s_raw if s_raw in ['spring', 'summer', 'winter'] else 'summer') %}
+    {% set t1 = slightly_cloudy_at | float(25) %}
+    {% set t2 = cloudy_at | float(50) %}
+    {% set t3 = heavily_cloudy_at | float(75) %}
+    {% set cov = (states(cloud_entity) | float(-1)) if (cloud_entity not in [none, '', 'none'] and (states(cloud_entity) | is_number)) else -1 %}
+    {% if cov < 0 %}
+      {% set offset = 0 %}
+    {% elif cov <= t1 %}
+      {% set offset = cloud_offset_1 | float(0) %}
+    {% elif cov <= t2 %}
+      {% set offset = cloud_offset_2 | float(0) %}
+    {% elif cov <= t3 %}
+      {% set offset = cloud_offset_3 | float(0) %}
+    {% else %}
+      {% set offset = cloud_offset_4 | float(0) %}
+    {% endif %}
+    {% set pos = {
+      'north_spring_none': pos_north_spring_none, 'north_spring_early': pos_north_spring_early, 'north_spring_direct': pos_north_spring_direct, 'north_spring_late': pos_north_spring_late,
+      'north_summer_none': pos_north_summer_none, 'north_summer_early': pos_north_summer_early, 'north_summer_direct': pos_north_summer_direct, 'north_summer_late': pos_north_summer_late,
+      'north_autumn_none': pos_north_autumn_none, 'north_autumn_early': pos_north_autumn_early, 'north_autumn_direct': pos_north_autumn_direct, 'north_autumn_late': pos_north_autumn_late,
+      'north_winter_none': pos_north_winter_none, 'north_winter_early': pos_north_winter_early, 'north_winter_direct': pos_north_winter_direct, 'north_winter_late': pos_north_winter_late,
+      'east_spring_none': pos_east_spring_none, 'east_spring_early': pos_east_spring_early, 'east_spring_direct': pos_east_spring_direct, 'east_spring_late': pos_east_spring_late,
+      'east_summer_none': pos_east_summer_none, 'east_summer_early': pos_east_summer_early, 'east_summer_direct': pos_east_summer_direct, 'east_summer_late': pos_east_summer_late,
+      'east_autumn_none': pos_east_autumn_none, 'east_autumn_early': pos_east_autumn_early, 'east_autumn_direct': pos_east_autumn_direct, 'east_autumn_late': pos_east_autumn_late,
+      'east_winter_none': pos_east_winter_none, 'east_winter_early': pos_east_winter_early, 'east_winter_direct': pos_east_winter_direct, 'east_winter_late': pos_east_winter_late,
+      'south_spring_none': pos_south_spring_none, 'south_spring_early': pos_south_spring_early, 'south_spring_direct': pos_south_spring_direct, 'south_spring_late': pos_south_spring_late,
+      'south_summer_none': pos_south_summer_none, 'south_summer_early': pos_south_summer_early, 'south_summer_direct': pos_south_summer_direct, 'south_summer_late': pos_south_summer_late,
+      'south_autumn_none': pos_south_autumn_none, 'south_autumn_early': pos_south_autumn_early, 'south_autumn_direct': pos_south_autumn_direct, 'south_autumn_late': pos_south_autumn_late,
+      'south_winter_none': pos_south_winter_none, 'south_winter_early': pos_south_winter_early, 'south_winter_direct': pos_south_winter_direct, 'south_winter_late': pos_south_winter_late,
+      'west_spring_none': pos_west_spring_none, 'west_spring_early': pos_west_spring_early, 'west_spring_direct': pos_west_spring_direct, 'west_spring_late': pos_west_spring_late,
+      'west_summer_none': pos_west_summer_none, 'west_summer_early': pos_west_summer_early, 'west_summer_direct': pos_west_summer_direct, 'west_summer_late': pos_west_summer_late,
+      'west_autumn_none': pos_west_autumn_none, 'west_autumn_early': pos_west_autumn_early, 'west_autumn_direct': pos_west_autumn_direct, 'west_autumn_late': pos_west_autumn_late,
+      'west_winter_none': pos_west_winter_none, 'west_winter_early': pos_west_winter_early, 'west_winter_direct': pos_west_winter_direct, 'west_winter_late': pos_west_winter_late,
+    } %}
+    {% if not (states(elevation_entity) | is_number) %}
+      {% set phase = 'skip' %}
+    {% else %}
+      {% set elev = states(elevation_entity) | float(0) %}
+      {% set day = elev > 0 %}
+      {% if use_sun_times %}
+        {% set phase = 'sun' if day else 'off' %}
+      {% else %}
+        {% set now_t = now().strftime('%H:%M:%S') %}
+        {% set in_window = (start_time <= now_t < end_time) if start_time <= end_time else (now_t >= start_time or now_t < end_time) %}
+        {% if not in_window %}
+          {% set phase = 'off' %}
+        {% elif day %}
+          {% set phase = 'sun' %}
+        {% else %}
+          {% set sm = start_time[0:2] | int * 60 + start_time[3:5] | int %}
+          {% set em = end_time[0:2] | int * 60 + end_time[3:5] | int %}
+          {% set nm = now().hour * 60 + now().minute %}
+          {% set span = (em - sm) if em >= sm else (em + 1440 - sm) %}
+          {% set elapsed = (nm - sm) if nm >= sm else (nm + 1440 - sm) %}
+          {% set phase = 'morning' if elapsed < span / 2 else 'evening' %}
+        {% endif %}
+      {% endif %}
+    {% endif %}
+    {% if phase == 'sun' and (states(azimuth_entity) | is_number) %}
+      {% set az = states(azimuth_entity) | float(0) %}
+      {% set off = building_offset | float(0) %}
+      {% set groups = [
+        {'side': 'north', 'covers': covers_north, 'facing': (0 + off) % 360},
+        {'side': 'east',  'covers': covers_east,  'facing': (90 + off) % 360},
+        {'side': 'south', 'covers': covers_south, 'facing': (180 + off) % 360},
+        {'side': 'west',  'covers': covers_west,  'facing': (270 + off) % 360}] %}
+      {% for g in groups %}
+        {% set d = ((az - g.facing + 180) % 360) - 180 %}
+        {% if d >= -45 and d < 45 %}
+          {% set zone = 'direct' %}
+        {% elif d >= -90 and d < -45 %}
+          {% set zone = 'early' %}
+        {% elif d >= 45 and d < 90 %}
+          {% set zone = 'late' %}
+        {% else %}
+          {% set zone = 'none' %}
+        {% endif %}
+        {% set base = pos[g.side ~ '_' ~ season ~ '_' ~ zone] | float(0) %}
+        {% set final = [[base + offset, 100] | min, 0] | max %}
+        {% for cv in g.covers %}
+          {% set ns.items = ns.items + [{'entity_id': cv, 'position': final | int}] %}
+        {% endfor %}
+      {% endfor %}
+    {% elif phase == 'morning' %}
+      {% set final = [[(morning_position | float(0)) + offset, 100] | min, 0] | max %}
+      {% for cv in all_covers %}
+        {% set ns.items = ns.items + [{'entity_id': cv, 'position': final | int}] %}
+      {% endfor %}
+    {% elif phase == 'evening' %}
+      {% set final = [[(evening_position | float(0)) + offset, 100] | min, 0] | max %}
+      {% for cv in all_covers %}
+        {% set ns.items = ns.items + [{'entity_id': cv, 'position': final | int}] %}
+      {% endfor %}
+    {% elif phase == 'off' and night_close_enabled %}
+      {% for cv in all_covers %}
+        {% set ns.items = ns.items + [{'entity_id': cv, 'position': night_close_position | int}] %}
+      {% endfor %}
+    {% endif %}
+    {{ ns.items }}
+
+trigger:
+  - platform: state
+    entity_id: !input azimuth_entity
+  - platform: state
+    entity_id: !input elevation_entity
+  - platform: time_pattern
+    minutes: "/5"
+  - platform: time
+    at: !input start_time
+  - platform: time
+    at: !input end_time
+  - platform: homeassistant
+    event: start
+
+action:
+  - choose:
+      # PAUSE: make no changes at all.
+      - conditions:
+          - "{{ pause_cfg | count > 0 }}"
+          - condition: and
+            conditions: !input pause_condition
+        sequence:
+          - stop: "Paused by 'pause if' condition"
+      # ALWAYS OPEN: force every cover to 100%.
+      - conditions:
+          - "{{ open_cfg | count > 0 }}"
+          - condition: and
+            conditions: !input always_open_condition
+        sequence:
+          - repeat:
+              for_each: "{{ all_covers }}"
+              sequence:
+                - variables:
+                    current: "{{ state_attr(repeat.item, 'current_position') }}"
+                - if:
+                    - condition: template
+                      value_template: "{{ current is none or (current | int(-1)) != 100 }}"
+                  then:
+                    - service: cover.set_cover_position
+                      target:
+                        entity_id: "{{ repeat.item }}"
+                      data:
+                        position: 100
+      # ALWAYS CLOSED: force every cover to 0%.
+      - conditions:
+          - "{{ closed_cfg | count > 0 }}"
+          - condition: and
+            conditions: !input always_closed_condition
+        sequence:
+          - repeat:
+              for_each: "{{ all_covers }}"
+              sequence:
+                - variables:
+                    current: "{{ state_attr(repeat.item, 'current_position') }}"
+                - if:
+                    - condition: template
+                      value_template: "{{ current is none or (current | int(-1)) != 0 }}"
+                  then:
+                    - service: cover.set_cover_position
+                      target:
+                        entity_id: "{{ repeat.item }}"
+                      data:
+                        position: 0
+    default:
+      # NORMAL: per-side/season positions with cloud offset.
+      - repeat:
+          for_each: "{{ commands }}"
+          sequence:
+            - variables:
+                target_pos: "{{ repeat.item.position | int }}"
+                current: "{{ state_attr(repeat.item.entity_id, 'current_position') }}"
+            - if:
+                - condition: template
+                  value_template: "{{ current is none or (current | int(-1)) != target_pos }}"
+              then:
+                - service: cover.set_cover_position
+                  target:
+                    entity_id: "{{ repeat.item.entity_id }}"
+                  data:
+                    position: "{{ target_pos }}"
+
+mode: single

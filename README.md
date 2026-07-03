@@ -6,6 +6,7 @@ A small collection of Home Assistant automation blueprints.
 | --- | --- | --- |
 | IKEA BILRESA scroll wheel (shutter) | [`ikea-bilresa-scroll-wheel-shutter.yaml`](ikea-bilresa-scroll-wheel-shutter.yaml) | Control shutters with the IKEA BILRESA Matter scroll wheel. |
 | Sun Azimuth Cover Control | [`sun-azimuth-cover-control.yaml`](sun-azimuth-cover-control.yaml) | Position covers automatically based on where the sun is. |
+| Sun Azimuth Cover Control (Seasonal) | [`sun-azimuth-cover-control-seasonal.yaml`](sun-azimuth-cover-control-seasonal.yaml) | As above, with per-side/per-season positions, cloud-offset bands and condition overrides. |
 | Medicine Intake & Storage Tracker | [`medicine-intake-storage.yaml`](medicine-intake-storage.yaml) | Decrement medicine stock daily and warn before it runs out. |
 | Consumable Stock Tracker | [`consumable-stock-tracker.yaml`](consumable-stock-tracker.yaml) | Generic version of the above for any depleting consumable. |
 | Accumulation Limit Tracker | [`accumulation-limit-tracker.yaml`](accumulation-limit-tracker.yaml) | Grow a value daily and warn how many days until it hits its max. |
@@ -174,6 +175,63 @@ It runs in `mode: queued` so bursts of azimuth updates are handled in order.
 2. Paste the raw URL of `sun-azimuth-cover-control.yaml` (or copy the file into
    `config/blueprints/automation/<your-folder>/`).
 3. Create an automation from the blueprint and fill in the inputs.
+
+---
+
+## Sun Azimuth Cover Control (Seasonal)
+
+A heavier variant of the sun-azimuth blueprint. Same core geometry (facade →
+zone from azimuth), but with four extra dimensions of control. Use this instead
+of the base blueprint when you want season- and side-specific behaviour.
+
+### What's different from the base blueprint
+
+**1. Per-side, per-season positions (64 values).** The four zone positions
+(`none` / `indirect-early` / `direct` / `indirect-late`) are configured
+separately for **each side** (N/E/S/W) **and each season** — 4 × 4 × 4 = 64
+sliders, grouped into 16 collapsed sections (`North · Winter`, `South · Summer`,
+…). A **Season entity** (state `spring`/`summer`/`autumn`/`fall`/`winter`)
+selects which season's set is used; empty or unrecognised falls back to
+`summer`.
+
+**2. Cloud coverage as offset bands (not per-side values).** Instead of a single
+"cloudy" position per side, three thresholds — **slightly cloudy**, **cloudy**,
+**heavily cloudy** — split coverage into four bands, and each band adds an
+**opening offset** (0–100) to the base position:
+
+| Cloud coverage | Offset applied |
+| --- | --- |
+| `0 …` slightly cloudy | Offset 1 (default `0`) |
+| slightly … cloudy | Offset 2 (default `15`) |
+| cloudy … heavily cloudy | Offset 3 (default `30`) |
+| heavily cloudy `… 100` | Offset 4 (default `45`) |
+
+`final = clamp(base + offset, 0, 100)`. The offset applies to every phase
+**except the night close**. No cloud entity (or a non-numeric one) → offset `0`.
+
+**3. Three condition overrides** (replacing the old disable entity / disable
+condition). Each is a full condition builder, evaluated **before** the normal
+logic, in this precedence:
+
+1. **Pause if…** — any condition true → the automation makes **no changes at
+   all** (covers stay where they are; further changes are effectively paused
+   while the condition holds).
+2. **Always open if…** — any condition true → all covers forced to **100 %**.
+3. **Always closed if…** — any condition true → all covers forced to **0 %**.
+4. otherwise → normal per-side/season + cloud logic.
+
+(To change the precedence, reorder the options in the `choose:` block.)
+
+### Notes
+
+- Morning/evening/night positions remain **global single values** (not
+  per-side/season); the cloud offset applies to morning/evening but not night.
+- Everything else — elevation-driven day/night, time-window vs sunrise/sunset,
+  the 5-minute re-evaluation, "only move if the position changed" — behaves like
+  the base blueprint.
+- 64 position inputs is a lot; if you don't need season **and** side granularity,
+  the base [`sun-azimuth-cover-control.yaml`](sun-azimuth-cover-control.yaml) is
+  simpler.
 
 ---
 
