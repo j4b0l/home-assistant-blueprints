@@ -315,6 +315,11 @@ use (clamped at `0`), computes `stock ÷ daily use` days of supply, and pushes a
 summary of every item with fewer than the **Warn threshold (days)** left to the
 selected devices. Up to 10 items; empty slots ignored.
 
+A **Pause if…** condition (full condition builder) skips the whole run when any
+of its conditions is true — no counts are changed and no notification is sent —
+just like the "pause" override in the seasonal cover blueprint. Leave it empty
+to never pause.
+
 Everything else — daily-only trigger (no double-count on restart), the
 `notify.mobile_app_<device>` delivery, intake-`0` never flagged, warn-`0`
 disables early warnings — behaves exactly like the medicine tracker.
@@ -347,4 +352,5 @@ Once a day it:
 
 A daily increase of `0` (never grows) is never flagged, and an item already at
 its max reports `~0 day(s)`. Same delivery and trigger behaviour as the other
-trackers.
+trackers, including the **Pause if…** condition that skips a run entirely when
+true.
