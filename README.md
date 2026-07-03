@@ -6,7 +6,7 @@ A small collection of Home Assistant automation blueprints.
 | --- | --- | --- |
 | IKEA BILRESA scroll wheel (shutter) | [`ikea-bilresa-scroll-wheel-shutter.yaml`](ikea-bilresa-scroll-wheel-shutter.yaml) | Control shutters with the IKEA BILRESA Matter scroll wheel. |
 | Sun Azimuth Cover Control | [`sun-azimuth-cover-control.yaml`](sun-azimuth-cover-control.yaml) | Position covers automatically based on where the sun is. |
-| Sun Azimuth Cover Control (Seasonal) | [`sun-azimuth-cover-control-seasonal.yaml`](sun-azimuth-cover-control-seasonal.yaml) | As above, with per-side/per-season positions, cloud-offset bands and condition overrides. |
+| Sun Azimuth Cover Control (Seasonal) | [`sun-azimuth-cover-control-seasonal.yaml`](sun-azimuth-cover-control-seasonal.yaml) | As above, with per-season positions, cloud-offset bands and condition overrides. |
 | Medicine Intake & Storage Tracker | [`medicine-intake-storage.yaml`](medicine-intake-storage.yaml) | Decrement medicine stock daily and warn before it runs out. |
 | Consumable Stock Tracker | [`consumable-stock-tracker.yaml`](consumable-stock-tracker.yaml) | Generic version of the above for any depleting consumable. |
 | Accumulation Limit Tracker | [`accumulation-limit-tracker.yaml`](accumulation-limit-tracker.yaml) | Grow a value daily and warn how many days until it hits its max. |
@@ -180,17 +180,18 @@ It runs in `mode: queued` so bursts of azimuth updates are handled in order.
 
 ## Sun Azimuth Cover Control (Seasonal)
 
-A heavier variant of the sun-azimuth blueprint. Same core geometry (facade →
-zone from azimuth), but with four extra dimensions of control. Use this instead
-of the base blueprint when you want season- and side-specific behaviour.
+A variant of the sun-azimuth blueprint. Same core geometry (facade → zone from
+azimuth), with season-specific positions, cloud offsets, and condition
+overrides. Use this instead of the base blueprint when you want the sun-zone
+positions to change with the season.
 
 ### What's different from the base blueprint
 
-**1. Per-side, per-season positions (64 values).** The four zone positions
-(`none` / `indirect-early` / `direct` / `indirect-late`) are configured
-separately for **each side** (N/E/S/W) **and each season** — 4 × 4 × 4 = 64
-sliders, grouped into 16 collapsed sections (`North · Winter`, `South · Summer`,
-…). A **Season entity** (state `spring`/`summer`/`autumn`/`fall`/`winter`)
+**1. Per-season positions (16 values).** The four zone positions
+(`none` / `indirect-early` / `direct` / `indirect-late`) are configured per
+**season** — 4 seasons × 4 zones = 16 sliders, in 4 collapsed sections
+(`Positions · Spring`, `Positions · Summer`, …). The values are shared by all
+sides. A **Season entity** (state `spring`/`summer`/`autumn`/`fall`/`winter`)
 selects which season's set is used; empty or unrecognised falls back to
 `summer`.
 
@@ -225,13 +226,12 @@ logic, in this precedence:
 ### Notes
 
 - Morning/evening/night positions remain **global single values** (not
-  per-side/season); the cloud offset applies to morning/evening but not night.
+  per-season); the cloud offset applies to morning/evening but not night.
 - Everything else — elevation-driven day/night, time-window vs sunrise/sunset,
   the 5-minute re-evaluation, "only move if the position changed" — behaves like
   the base blueprint.
-- 64 position inputs is a lot; if you don't need season **and** side granularity,
-  the base [`sun-azimuth-cover-control.yaml`](sun-azimuth-cover-control.yaml) is
-  simpler.
+- If you don't need season granularity at all, the base
+  [`sun-azimuth-cover-control.yaml`](sun-azimuth-cover-control.yaml) is simpler.
 
 ---
 
