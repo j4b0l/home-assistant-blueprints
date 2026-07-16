@@ -13,6 +13,12 @@ blueprint:
     four bands (0->slightly, slightly->cloudy, cloudy->heavily, heavily->100),
     each with its own offset added to the base position (night close excluded).
 
+    Advanced settings expose the four angles that separate the zones. The sun
+    angle is measured per facade as its progress across that facade: 0° = sun
+    90° before it, 90° = straight on it, 180° = 90° past it. The thresholds
+    split that sweep into none / early / direct / late / none, and default to
+    0 / 45 / 135 / 180, which is the built-in behaviour.
+
     Three condition overrides run before everything else, in this precedence:
       1. Pause if...         -> make no changes at all
       2. Always open if...   -> force all covers to 100%
@@ -448,6 +454,72 @@ blueprint:
               unit_of_measurement: "%"
               mode: slider
 
+    advanced_section:
+      name: Advanced
+      icon: mdi:tune
+      collapsed: true
+      description: >
+        Zone boundary angles. Each facade's sun angle is measured as its
+        progress across that facade: 0° = sun 90° before the facade, 90° = sun
+        straight on it, 180° = sun 90° past it. Above 180° the sun is behind
+        the facade and the "none" position always applies.
+
+        The four thresholds carve that 0-180° sweep into the five bands below.
+        They are evaluated in order, so keep them ascending. The defaults
+        reproduce the built-in behaviour (early 0-45, direct 45-135,
+        late 135-180).
+      input:
+        angle_early_start:
+          name: "Early starts at (°)"
+          description: >
+            Below this angle the sun is too far off the facade to matter, and
+            the "none" position is used. Default 0 = early begins as soon as
+            the sun reaches the facade.
+          default: 0
+          selector:
+            number:
+              min: 0
+              max: 180
+              step: 1
+              unit_of_measurement: "°"
+              mode: slider
+        angle_direct_start:
+          name: "Direct starts at (°)"
+          description: End of the indirect-early band, start of the direct band.
+          default: 45
+          selector:
+            number:
+              min: 0
+              max: 180
+              step: 1
+              unit_of_measurement: "°"
+              mode: slider
+        angle_late_start:
+          name: "Late starts at (°)"
+          description: End of the direct band, start of the indirect-late band.
+          default: 135
+          selector:
+            number:
+              min: 0
+              max: 180
+              step: 1
+              unit_of_measurement: "°"
+              mode: slider
+        angle_late_end:
+          name: "Late ends at (°)"
+          description: >
+            Above this angle the sun has left the facade and the "none"
+            position is used again, until the next cycle's early band.
+            Default 180 = late runs until the sun is 90° past the facade.
+          default: 180
+          selector:
+            number:
+              min: 0
+              max: 180
+              step: 1
+              unit_of_measurement: "°"
+              mode: slider
+
     overrides_section:
       name: Overrides
       icon: mdi:gesture-tap-button
@@ -504,6 +576,10 @@ variables:
   evening_position: !input evening_position
   night_close_enabled: !input night_close_enabled
   night_close_position: !input night_close_position
+  angle_early_start: !input angle_early_start
+  angle_direct_start: !input angle_direct_start
+  angle_late_start: !input angle_late_start
+  angle_late_end: !input angle_late_end
   open_cfg: !input always_open_condition
   closed_cfg: !input always_closed_condition
   pause_cfg: !input pause_condition
@@ -577,21 +653,27 @@ variables:
     {% if phase == 'sun' and (states(azimuth_entity) | is_number) %}
       {% set az = states(azimuth_entity) | float(0) %}
       {% set off = building_offset | float(0) %}
+      {% set a1 = angle_early_start | float(0) %}
+      {% set a2 = angle_direct_start | float(45) %}
+      {% set a3 = angle_late_start | float(135) %}
+      {% set a4 = angle_late_end | float(180) %}
       {% set groups = [
         {'side': 'north', 'covers': covers_north, 'facing': (0 + off) % 360},
         {'side': 'east',  'covers': covers_east,  'facing': (90 + off) % 360},
         {'side': 'south', 'covers': covers_south, 'facing': (180 + off) % 360},
         {'side': 'west',  'covers': covers_west,  'facing': (270 + off) % 360}] %}
       {% for g in groups %}
-        {% set d = ((az - g.facing + 180) % 360) - 180 %}
-        {% if d >= -45 and d < 45 %}
-          {% set zone = 'direct' %}
-        {% elif d >= -90 and d < -45 %}
-          {% set zone = 'early' %}
-        {% elif d >= 45 and d < 90 %}
-          {% set zone = 'late' %}
-        {% else %}
+        {# Progress of the sun across this facade: 0 = 90° before it,
+           90 = straight on it, 180 = 90° past it, >180 = behind it. #}
+        {% set a = (az - g.facing + 90) % 360 %}
+        {% if a > 180 or a < a1 or a >= a4 %}
           {% set zone = 'none' %}
+        {% elif a < a2 %}
+          {% set zone = 'early' %}
+        {% elif a < a3 %}
+          {% set zone = 'direct' %}
+        {% else %}
+          {% set zone = 'late' %}
         {% endif %}
         {% set base = pos[season ~ '_' ~ zone] | float(0) %}
         {% set final = [[base + offset, 100] | min, 0] | max %}

@@ -6,7 +6,7 @@ A small collection of Home Assistant automation blueprints.
 | --- | --- | --- |
 | IKEA BILRESA scroll wheel (shutter) | [`ikea-bilresa-scroll-wheel-shutter.yaml`](ikea-bilresa-scroll-wheel-shutter.yaml) | Control shutters with the IKEA BILRESA Matter scroll wheel. |
 | Sun Azimuth Cover Control | [`sun-azimuth-cover-control.yaml`](sun-azimuth-cover-control.yaml) | Position covers automatically based on where the sun is. |
-| Sun Azimuth Cover Control (Seasonal) | [`sun-azimuth-cover-control-seasonal.yaml`](sun-azimuth-cover-control-seasonal.yaml) | As above, with per-season positions, cloud-offset bands and condition overrides. |
+| Sun Azimuth Cover Control (Seasonal) | [`sun-azimuth-cover-control-seasonal.yaml`](sun-azimuth-cover-control-seasonal.yaml) | As above, with per-season positions, cloud-offset bands, adjustable zone angles and condition overrides. |
 | Medicine Intake & Storage Tracker | [`medicine-intake-storage.yaml`](medicine-intake-storage.yaml) | Decrement medicine stock daily and warn before it runs out. |
 | Consumable Stock Tracker | [`consumable-stock-tracker.yaml`](consumable-stock-tracker.yaml) | Generic version of the above for any depleting consumable. |
 | Accumulation Limit Tracker | [`accumulation-limit-tracker.yaml`](accumulation-limit-tracker.yaml) | Grow a value daily and warn how many days until it hits its max. |
@@ -222,6 +222,30 @@ logic, in this precedence:
 4. otherwise → normal per-side/season + cloud logic.
 
 (To change the precedence, reorder the options in the `choose:` block.)
+
+**4. Adjustable zone angles (Advanced section).** The base blueprint hardcodes
+where one zone ends and the next begins. Here the four boundaries are sliders.
+
+The sun angle is measured per facade as the sun's **progress across that
+facade**: `0°` = sun 90° before it, `90°` = straight on it, `180°` = 90° past
+it. Above `180°` the sun is behind the facade and `none` always applies.
+
+```
+  A:    0    T1        T2         T3       T4    180
+        |-----|---------|----------|--------|-----|
+         none   EARLY      DIRECT     LATE   none
+```
+
+| Threshold | Default | Meaning |
+| --- | --- | --- |
+| **Early starts at** | `0` | Below it → `none`. Raise to make the sun wait longer before the early band starts. |
+| **Direct starts at** | `45` | Early ends, direct begins. |
+| **Late starts at** | `135` | Direct ends, late begins. |
+| **Late ends at** | `180` | Above it → `none` again, until the next cycle's early band. Lower to end the late band sooner. |
+
+The defaults reproduce the base blueprint exactly (early 45° wide, direct 90°,
+late 45°). The thresholds are evaluated in order, so keep them ascending —
+`Late ends at` below `Late starts at` just truncates the bands beneath it.
 
 ### Notes
 
