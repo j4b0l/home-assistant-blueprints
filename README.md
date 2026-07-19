@@ -230,6 +230,13 @@ The sun angle is measured per facade as the sun's **progress across that
 facade**: `0°` = sun 90° before it, `90°` = straight on it, `180°` = 90° past
 it. Above `180°` the sun is behind the facade and `none` always applies.
 
+![One facade as the sun goes round: the zone changes with the sun angle, and the cover follows the position configured for that zone](docs/sun-zones.gif)
+
+One facade, one full turn of the sun, at the default angles and the default
+spring positions. Band colour is **sun intensity on the facade** — `early` and
+`late` share a colour because they are the same intensity (and, by default, the
+same position); the labels tell them apart.
+
 ```
   A:    0    T1        T2         T3       T4    180
         |-----|---------|----------|--------|-----|
