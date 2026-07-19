@@ -11,6 +11,39 @@ A small collection of Home Assistant automation blueprints.
 | Consumable Stock Tracker | [`consumable-stock-tracker.yaml`](consumable-stock-tracker.yaml) | Generic version of the above for any depleting consumable. |
 | Accumulation Limit Tracker | [`accumulation-limit-tracker.yaml`](accumulation-limit-tracker.yaml) | Grow a value daily and warn how many days until it hits its max. |
 
+## Human-made disclaimer
+
+Hi, I'm the human behind this LLM-generated content. I do realize that it may
+sometimes be faulty. I only test it on my limited test harness (my home). I tend
+to just create something I need, not necessarily well designed for large-scale
+HASS deployments. Nevertheless, if you see something may be a base for what
+you're doing, feel free to take it. **At your own risk**.
+
+Of course not everything is just LLM hallucinating, ideas are mine. Or I should
+say needs are mine, these are the solutions.
+
+With any OSS, feel free to use, be careful, godspede!
+
+## Disclaimer
+
+These blueprints were generated with the help of a large language model (LLM) and
+have not been exhaustively tested. Treat them as a starting point, not a finished
+product — read the YAML before you use it, and try it on non-critical devices first.
+
+They control real hardware (covers, switches, and other actuators). Automations
+can misfire, move things at the wrong time, or behave unexpectedly if an entity is
+unavailable or misconfigured. **Use them entirely at your own risk.**
+
+To the maximum extent permitted by law, the author provides this repository "AS IS",
+without warranty of any kind, express or implied, including but not limited to the
+warranties of merchantability, fitness for a particular purpose, and
+non-infringement. In no event shall the author be liable for any claim, damages, or
+other liability — including any damage to property, equipment, or data — arising
+from, out of, or in connection with these blueprints or their use.
+
+No license is granted. If you want to reuse or redistribute this beyond personal
+use, please ask.
+
 ---
 
 ## Sun Azimuth Cover Control
