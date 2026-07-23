@@ -13,6 +13,14 @@ blueprint:
     four bands (0->slightly, slightly->cloudy, cloudy->heavily, heavily->100),
     each with its own offset added to the base position (night close excluded).
 
+    Flaky / unavailable cloud sensor: if the cloud entity is missing or non-numeric
+    the covers are NOT moved on that account - a cover already sitting at a valid
+    position for its current zone (base, or base + any cloud offset) is held in
+    place, so a dropping/flickering sensor cannot make covers hunt back and forth.
+    While the sensor stays unavailable, covers only re-position on real zone/season
+    changes, the night position, or overrides - and a zone change is then treated
+    as clear sky (offset 0).
+
     Advanced settings expose the four angles that separate the zones. The sun
     angle is measured per facade as its progress across that facade: 0° = sun
     90° before it, 90° = straight on it, 180° = 90° past it. The thresholds
@@ -24,8 +32,10 @@ blueprint:
       2. Always open if...   -> force all covers to 100%
       3. Always closed if... -> force all covers to 0%
       otherwise              -> normal per-side/season + cloud logic
+    The automation re-runs the instant an entity used inside any of these
+    override conditions changes, so overrides apply immediately.
 
-    Version: 2026-07-03
+    Version: 2026-07-24
   domain: automation
 
   input:
@@ -650,6 +660,9 @@ variables:
         {% endif %}
       {% endif %}
     {% endif %}
+    {% set cloud_avail = cov >= 0 %}
+    {% set offs = [cloud_offset_1 | float(0), cloud_offset_2 | float(0), cloud_offset_3 | float(0), cloud_offset_4 | float(0)] %}
+    {% set tg = namespace(pairs=[]) %}
     {% if phase == 'sun' and (states(azimuth_entity) | is_number) %}
       {% set az = states(azimuth_entity) | float(0) %}
       {% set off = building_offset | float(0) %}
@@ -676,27 +689,59 @@ variables:
           {% set zone = 'late' %}
         {% endif %}
         {% set base = pos[season ~ '_' ~ zone] | float(0) %}
-        {% set final = [[base + offset, 100] | min, 0] | max %}
         {% for cv in g.covers %}
-          {% set ns.items = ns.items + [{'entity_id': cv, 'position': final | int}] %}
+          {% set tg.pairs = tg.pairs + [{'cv': cv, 'base': base}] %}
         {% endfor %}
       {% endfor %}
     {% elif phase == 'morning' %}
-      {% set final = [[(morning_position | float(0)) + offset, 100] | min, 0] | max %}
       {% for cv in all_covers %}
-        {% set ns.items = ns.items + [{'entity_id': cv, 'position': final | int}] %}
+        {% set tg.pairs = tg.pairs + [{'cv': cv, 'base': morning_position | float(0)}] %}
       {% endfor %}
     {% elif phase == 'evening' %}
-      {% set final = [[(evening_position | float(0)) + offset, 100] | min, 0] | max %}
       {% for cv in all_covers %}
-        {% set ns.items = ns.items + [{'entity_id': cv, 'position': final | int}] %}
+        {% set tg.pairs = tg.pairs + [{'cv': cv, 'base': evening_position | float(0)}] %}
       {% endfor %}
     {% elif phase == 'off' and night_close_enabled %}
+      {# Night close ignores cloud coverage entirely - always command the night position. #}
       {% for cv in all_covers %}
         {% set ns.items = ns.items + [{'entity_id': cv, 'position': night_close_position | int}] %}
       {% endfor %}
     {% endif %}
+    {# Emit sun / morning / evening targets. When cloud coverage IS available:
+       position = base + cloud offset. When it is UNAVAILABLE: if the cover already
+       sits at a valid position for its current zone (base, or base + any configured
+       cloud offset, within 3%) it is HELD (no command emitted); otherwise the zone or
+       phase changed, so it moves to the clear-sky base. This holds position through a
+       flaky/dropped cloud sensor and only re-positions on real zone/phase/override
+       changes (night and overrides are handled separately, above / in the action). #}
+    {% for t in tg.pairs %}
+      {% if cloud_avail %}
+        {% set final = [[t.base + offset, 100] | min, 0] | max %}
+        {% set ns.items = ns.items + [{'entity_id': t.cv, 'position': final | int}] %}
+      {% else %}
+        {% set cur = state_attr(t.cv, 'current_position') %}
+        {% set clearpos = [[t.base, 100] | min, 0] | max %}
+        {% set m = namespace(hit=false) %}
+        {% for o in [0.0] + offs %}
+          {% set v = [[t.base + o, 100] | min, 0] | max %}
+          {% if cur is not none and ((cur | int(9999)) - (v | int)) | abs <= 3 %}
+            {% set m.hit = true %}
+          {% endif %}
+        {% endfor %}
+        {% if not m.hit %}
+          {% set ns.items = ns.items + [{'entity_id': t.cv, 'position': clearpos | int}] %}
+        {% endif %}
+      {% endif %}
+    {% endfor %}
     {{ ns.items }}
+
+# The three override inputs are grouped here so a trigger can extract the
+# entities they reference (limited templating, no state access - allowed).
+trigger_variables:
+  ov_cfgs:
+    - !input always_open_condition
+    - !input always_closed_condition
+    - !input pause_condition
 
 trigger:
   - platform: state
@@ -711,6 +756,34 @@ trigger:
     at: !input end_time
   - platform: homeassistant
     event: start
+  # Re-run instantly when any entity the overrides (pause / always open /
+  # always closed) depend on changes. The entity list is pulled straight out
+  # of those condition configs, so there is no separate option to fill in.
+  # Covers state/numeric_state conditions and one level of and/or/not nesting;
+  # empty overrides yield an empty list, which simply never fires.
+  - platform: state
+    entity_id: >
+      {% set ns = namespace(ids=[]) %}
+      {% for g in ov_cfgs %}
+        {% set lst = g if (g is iterable and g is not string and g is not mapping) else ([g] if g else []) %}
+        {% for c in lst %}
+          {% if c is mapping %}
+            {% if c.entity_id is defined and c.entity_id %}
+              {% set e = c.entity_id %}
+              {% if e is string %}{% set ns.ids = ns.ids + [e] %}
+              {% elif e is iterable %}{% set ns.ids = ns.ids + (e | list) %}{% endif %}
+            {% endif %}
+            {% for sc in (c.conditions if c.conditions is defined and c.conditions else []) %}
+              {% if sc is mapping and sc.entity_id is defined and sc.entity_id %}
+                {% set e2 = sc.entity_id %}
+                {% if e2 is string %}{% set ns.ids = ns.ids + [e2] %}
+                {% elif e2 is iterable %}{% set ns.ids = ns.ids + (e2 | list) %}{% endif %}
+              {% endif %}
+            {% endfor %}
+          {% endif %}
+        {% endfor %}
+      {% endfor %}
+      {{ ns.ids | unique | list }}
 
 action:
   - choose:
