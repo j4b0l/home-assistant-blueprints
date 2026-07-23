@@ -32,8 +32,9 @@ blueprint:
       2. Always open if...   -> force all covers to 100%
       3. Always closed if... -> force all covers to 0%
       otherwise              -> normal per-side/season + cloud logic
-    The automation re-runs the instant an entity used inside any of these
-    override conditions changes, so overrides apply immediately.
+    Overrides are re-evaluated on every run (sun movement and the 5-minute
+    tick), so they take effect within a few minutes of the underlying state
+    changing.
 
     Version: 2026-07-24
   domain: automation
@@ -735,14 +736,6 @@ variables:
     {% endfor %}
     {{ ns.items }}
 
-# The three override inputs are grouped here so a trigger can extract the
-# entities they reference (limited templating, no state access - allowed).
-trigger_variables:
-  ov_cfgs:
-    - !input always_open_condition
-    - !input always_closed_condition
-    - !input pause_condition
-
 trigger:
   - platform: state
     entity_id: !input azimuth_entity
@@ -756,34 +749,6 @@ trigger:
     at: !input end_time
   - platform: homeassistant
     event: start
-  # Re-run instantly when any entity the overrides (pause / always open /
-  # always closed) depend on changes. The entity list is pulled straight out
-  # of those condition configs, so there is no separate option to fill in.
-  # Covers state/numeric_state conditions and one level of and/or/not nesting;
-  # empty overrides yield an empty list, which simply never fires.
-  - platform: state
-    entity_id: >
-      {% set ns = namespace(ids=[]) %}
-      {% for g in ov_cfgs %}
-        {% set lst = g if (g is iterable and g is not string and g is not mapping) else ([g] if g else []) %}
-        {% for c in lst %}
-          {% if c is mapping %}
-            {% if c.entity_id is defined and c.entity_id %}
-              {% set e = c.entity_id %}
-              {% if e is string %}{% set ns.ids = ns.ids + [e] %}
-              {% elif e is iterable %}{% set ns.ids = ns.ids + (e | list) %}{% endif %}
-            {% endif %}
-            {% for sc in (c.conditions if c.conditions is defined and c.conditions else []) %}
-              {% if sc is mapping and sc.entity_id is defined and sc.entity_id %}
-                {% set e2 = sc.entity_id %}
-                {% if e2 is string %}{% set ns.ids = ns.ids + [e2] %}
-                {% elif e2 is iterable %}{% set ns.ids = ns.ids + (e2 | list) %}{% endif %}
-              {% endif %}
-            {% endfor %}
-          {% endif %}
-        {% endfor %}
-      {% endfor %}
-      {{ ns.ids | unique | list }}
 
 action:
   - choose:
