@@ -10,6 +10,7 @@ A small collection of Home Assistant automation blueprints.
 | Medicine Intake & Storage Tracker | [`medicine-intake-storage.yaml`](medicine-intake-storage.yaml) | Decrement medicine stock daily and warn before it runs out. |
 | Consumable Stock Tracker | [`consumable-stock-tracker.yaml`](consumable-stock-tracker.yaml) | Generic version of the above for any depleting consumable. |
 | Accumulation Limit Tracker | [`accumulation-limit-tracker.yaml`](accumulation-limit-tracker.yaml) | Grow a value daily and warn how many days until it hits its max. |
+| Sensor-controlled Lights & Switches | [`sensor-triggered-lights.yaml`](sensor-triggered-lights.yaml) | Switch lights/switches from a door/motion sensor's state, with configurable on/off states, on- and off-delays, and a daily time window. |
 
 ## Human-made disclaimer
 

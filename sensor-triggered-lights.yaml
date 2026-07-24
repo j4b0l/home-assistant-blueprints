@@ -1,0 +1,184 @@
+blueprint:
+  name: Sensor-controlled Lights & Switches
+  description: |
+    Turn lights or switches on and off from the state of a sensor — a door/window
+    contact, a motion or occupancy sensor, and so on.
+
+    What you can configure:
+      - Which sensor state turns the targets ON and which turns them OFF. For a
+        contact sensor, open = "on" and closed = "off"; for motion, detected = "on".
+        Flip them if you want (e.g. closing the door = turn on).
+      - One sensor driving many lights/switches at once.
+      - Two independent delays: an on-delay and an off-delay. The sensor must HOLD
+        the state for the whole delay before the targets switch, and if it changes
+        back before the delay elapses nothing happens — so a quick open/close will
+        not flip the lights.
+      - An optional daily time window in which the automation is active. By default
+        the window only gates turning the targets ON (so they can never get stuck
+        on); optionally it can gate the OFF action too.
+
+    Create one automation per sensor — each instance then has its own targets,
+    states, delays and time window ("separate for each sensor").
+
+    Example: open the bathroom door (contact -> "on") and after the on-delay the
+    lights come on; close it (contact -> "off") and after the off-delay they go off.
+
+    Version: 2026-07-24
+  domain: automation
+
+  input:
+    sensor_section:
+      name: Sensor
+      icon: mdi:motion-sensor
+      input:
+        sensor:
+          name: Trigger sensor
+          description: >
+            The entity whose state controls the targets — a door/window contact,
+            motion sensor, occupancy sensor, etc.
+          selector:
+            entity: {}
+        on_state:
+          name: State that turns targets ON
+          description: >
+            The sensor state that switches the targets on. Contact sensor open =
+            "on"; motion detected = "on". Case-sensitive, matches the raw state.
+          default: "on"
+          selector:
+            text: {}
+        off_state:
+          name: State that turns targets OFF
+          description: >
+            The sensor state that switches the targets off. Contact sensor closed =
+            "off"; motion cleared = "off".
+          default: "off"
+          selector:
+            text: {}
+
+    target_section:
+      name: Lights / switches
+      icon: mdi:lightbulb-group
+      input:
+        targets:
+          name: Targets to control
+          description: One or more lights and/or switches to switch on and off together.
+          selector:
+            target:
+              entity:
+                - domain: light
+                - domain: switch
+
+    delay_section:
+      name: Delays
+      icon: mdi:timer-sand
+      input:
+        on_delay:
+          name: On-delay
+          description: >
+            How long the sensor must stay in the ON state before the targets turn
+            on. 0 = immediately. If the sensor leaves the ON state during the delay,
+            nothing happens.
+          default:
+            hours: 0
+            minutes: 0
+            seconds: 0
+          selector:
+            duration: {}
+        off_delay:
+          name: Off-delay
+          description: >
+            How long the sensor must stay in the OFF state before the targets turn
+            off. 0 = immediately. If the sensor leaves the OFF state during the
+            delay, nothing happens.
+          default:
+            hours: 0
+            minutes: 0
+            seconds: 0
+          selector:
+            duration: {}
+
+    window_section:
+      name: Time window
+      icon: mdi:clock-outline
+      input:
+        window_start:
+          name: Window start
+          description: >
+            Start of the daily window in which the automation is active. Leave the
+            start equal to the end (e.g. both 00:00:00) for "all day / always".
+          default: "00:00:00"
+          selector:
+            time: {}
+        window_end:
+          name: Window end
+          description: >
+            End of the daily window. If it is earlier than the start, the window
+            runs overnight (e.g. 22:00 -> 06:00).
+          default: "00:00:00"
+          selector:
+            time: {}
+        window_gates_off:
+          name: Window also applies to turning OFF
+          description: >
+            Off by default: the window only gates turning the targets ON, so they
+            always turn off after the off-delay and can never get stuck on. Turn
+            this on to also require the window for the OFF action.
+          default: false
+          selector:
+            boolean: {}
+
+mode: restart
+max_exceeded: silent
+
+variables:
+  window_start: !input window_start
+  window_end: !input window_end
+  window_gates_off: !input window_gates_off
+  in_window: >
+    {% set s = window_start %}
+    {% set e = window_end %}
+    {% set n = now().strftime('%H:%M:%S') %}
+    {% if s == e %}
+      {{ true }}
+    {% elif s < e %}
+      {{ s <= n and n < e }}
+    {% else %}
+      {{ n >= s or n < e }}
+    {% endif %}
+
+trigger:
+  - platform: state
+    entity_id: !input sensor
+    to: !input on_state
+    for: !input on_delay
+    id: turn_on
+  - platform: state
+    entity_id: !input sensor
+    to: !input off_state
+    for: !input off_delay
+    id: turn_off
+
+condition: []
+
+action:
+  - choose:
+      # Sensor reached the ON state (held for the on-delay) -> turn targets on,
+      # but only inside the time window.
+      - conditions:
+          - condition: trigger
+            id: turn_on
+          - condition: template
+            value_template: "{{ in_window | bool }}"
+        sequence:
+          - service: homeassistant.turn_on
+            target: !input targets
+      # Sensor reached the OFF state (held for the off-delay) -> turn targets off.
+      # Always allowed unless the window is set to gate the OFF action too.
+      - conditions:
+          - condition: trigger
+            id: turn_off
+          - condition: template
+            value_template: "{{ (not window_gates_off) or (in_window | bool) }}"
+        sequence:
+          - service: homeassistant.turn_off
+            target: !input targets
