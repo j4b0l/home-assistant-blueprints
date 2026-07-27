@@ -1,0 +1,179 @@
+blueprint:
+  name: Appliance Cycle Finished (power-based)
+  description: |
+    Notify when an appliance on a power-monitoring smart plug finishes a cycle —
+    a washing machine, tumble dryer, dishwasher, and so on.
+
+    How it decides "finished": the appliance is running whenever its power draw is
+    above the idle level, and the cycle is finished when the power drops below the
+    idle level and STAYS there for the "finished delay". The delay rides over the
+    short low-power dips inside a cycle (soak/pause phases), and because the
+    notification only fires on the drop FROM an active level it is not sent when
+    Home Assistant restarts while the appliance is already idle.
+
+    It is robust by design:
+      - Unplugging or switching the plug off makes the power read 0 or unavailable;
+        that is ignored (the optional plug-switch guard, plus the "dropped from an
+        active level" check, prevent a false "finished").
+      - The power sensor going unavailable never counts as finished.
+
+    Create one automation per appliance (Washer, Dryer, …); each gets its own
+    power sensor, idle level, delay, message and notification targets.
+
+    Example: a washing machine plug reads ~2000 W while heating and a few watts
+    when done -> set idle to ~15 W; when power stays under 15 W for 5 minutes the
+    "Koniec prania" push is sent to your devices.
+
+    Version: 2026-07-24
+  domain: automation
+
+  input:
+    appliance_section:
+      name: Appliance
+      icon: mdi:washing-machine
+      input:
+        power_sensor:
+          name: Power sensor
+          description: >
+            The appliance's power-draw sensor (a smart plug's power sensor). The
+            cycle is considered finished when this drops to the idle level below.
+          selector:
+            entity:
+              filter:
+                - domain: sensor
+                  device_class: power
+        idle_threshold:
+          name: Idle power (W)
+          description: >
+            Power below this counts as "not running". Set it ABOVE the appliance's
+            standby draw and BELOW its running draw — e.g. ~15 W for a washing
+            machine, ~100 W for a tumble dryer.
+          default: 15
+          selector:
+            number:
+              min: 0
+              max: 3600
+              step: 1
+              unit_of_measurement: W
+              mode: box
+        finished_delay:
+          name: Finished delay
+          description: >
+            How long the power must stay below the idle level before the cycle is
+            declared finished. Must be longer than the low-power dips inside a
+            cycle (a washing machine's are usually under ~2 minutes).
+          default:
+            hours: 0
+            minutes: 5
+            seconds: 0
+          selector:
+            duration: {}
+        power_switch:
+          name: Plug switch (optional)
+          description: >
+            The switch that powers the appliance. If set, the notification is only
+            sent while it is still on, so switching it off / unplugging is never
+            mistaken for a finished cycle. Leave empty if the plug is not
+            switchable from Home Assistant.
+          default:
+          selector:
+            entity:
+              filter:
+                - domain: switch
+
+    notify_section:
+      name: Notification
+      icon: mdi:cellphone-message
+      input:
+        notify_devices:
+          name: Notification targets
+          description: One or more mobile devices to notify (companion app).
+          selector:
+            device:
+              multiple: true
+              filter:
+                - integration: mobile_app
+        notify_title:
+          name: Notification title
+          default: "🧺 Appliance finished"
+          selector:
+            text: {}
+        notify_message:
+          name: Notification message
+          default: "The cycle has finished."
+          selector:
+            text: {}
+
+    window_section:
+      name: Time window (optional)
+      icon: mdi:clock-outline
+      input:
+        window_start:
+          name: Window start
+          description: >
+            Only send the notification inside this daily window. Leave the start
+            equal to the end (both 00:00:00) for "always".
+          default: "00:00:00"
+          selector:
+            time: {}
+        window_end:
+          name: Window end
+          description: >
+            End of the window. If it is earlier than the start, the window runs
+            overnight (e.g. 22:00 -> 06:00).
+          default: "00:00:00"
+          selector:
+            time: {}
+
+mode: single
+max_exceeded: silent
+
+variables:
+  power_switch: !input power_switch
+  idle_threshold: !input idle_threshold
+  window_start: !input window_start
+  window_end: !input window_end
+  in_window: >
+    {% set s = window_start %}
+    {% set e = window_end %}
+    {% set n = now().strftime('%H:%M:%S') %}
+    {% if s == e %}
+      {{ true }}
+    {% elif s < e %}
+      {{ s <= n and n < e }}
+    {% else %}
+      {{ n >= s or n < e }}
+    {% endif %}
+
+trigger:
+  - platform: numeric_state
+    entity_id: !input power_sensor
+    below: !input idle_threshold
+    for: !input finished_delay
+
+condition:
+  # The power dropped FROM an active level (>= idle). Guards against Home Assistant
+  # restarting while the appliance is already idle, and against trivial blips.
+  - condition: template
+    value_template: >
+      {{ trigger.from_state is not none
+         and (trigger.from_state.state | float(-1)) >= idle_threshold }}
+  # If a plug switch is configured, only notify while it is still on (ignores the
+  # plug being switched off / unplugged).
+  - condition: template
+    value_template: "{{ (power_switch in [none, '', []]) or is_state(power_switch, 'on') }}"
+  # Inside the daily time window.
+  - condition: template
+    value_template: "{{ in_window | bool }}"
+
+action:
+  - repeat:
+      for_each: !input notify_devices
+      sequence:
+        # Device actions reject a templated device_id, so call the mobile_app
+        # notify service built from the device's (original) name instead.
+        - service: >-
+            notify.mobile_app_{{ device_attr(repeat.item, 'name') | slugify }}
+          data:
+            title: !input notify_title
+            message: !input notify_message

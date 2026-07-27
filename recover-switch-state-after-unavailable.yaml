@@ -1,0 +1,129 @@
+blueprint:
+  name: Force devices to a state after they recover from Unavailable
+  description: |
+    When a listed entity comes back online — it transitions from "unavailable" or
+    "unknown" to a real state, e.g. after a power outage or a network drop — force
+    it to a chosen state:
+      - the "Turn ON" list is switched on,
+      - the "Turn OFF" list is switched off.
+
+    Works for switches, lights, input_booleans and fans (uses
+    homeassistant.turn_on / turn_off). Leave a list empty to ignore it.
+
+    IMPORTANT — read before using:
+    Most smart plugs, including Shelly (Plug S Gen3 and friends), can already
+    "remember the exact state from before a power outage" on their own. In the
+    device's web UI or the Shelly app set "Action on power on" to
+    "Restore last known state" (or "Turn ON" / "Turn OFF" for a fixed state). That
+    is the most reliable fix and needs no automation, because the device restores
+    itself before Home Assistant even sees it.
+
+    Use THIS blueprint when you instead want Home Assistant to ENFORCE a fixed
+    state after recovery (e.g. "the humidifier and the computer socket must always
+    come back ON"), or for devices that have no such setting. Home Assistant cannot
+    reliably restore the *previous* state on its own (it does not persist it across
+    the outage), which is exactly why the device-side "Restore last known state"
+    setting is preferred for that case.
+
+    Version: 2026-07-24
+  domain: automation
+
+  input:
+    on_section:
+      name: Turn ON after recovery
+      icon: mdi:toggle-switch
+      input:
+        entities_on:
+          name: Devices to switch ON
+          description: These are turned on when they come back from unavailable/unknown.
+          default: []
+          selector:
+            entity:
+              multiple: true
+              filter:
+                - domain: switch
+                - domain: light
+                - domain: input_boolean
+                - domain: fan
+
+    off_section:
+      name: Turn OFF after recovery
+      icon: mdi:toggle-switch-off
+      input:
+        entities_off:
+          name: Devices to switch OFF
+          description: These are turned off when they come back from unavailable/unknown.
+          default: []
+          selector:
+            entity:
+              multiple: true
+              filter:
+                - domain: switch
+                - domain: light
+                - domain: input_boolean
+                - domain: fan
+
+    timing_section:
+      name: Timing
+      icon: mdi:timer-sand
+      input:
+        settle_delay:
+          name: Settle delay
+          description: >
+            Wait this long after the device reappears before forcing its state,
+            to let it finish reconnecting and reporting.
+          default:
+            seconds: 5
+          selector:
+            duration: {}
+
+mode: parallel
+max: 50
+max_exceeded: silent
+
+trigger:
+  - platform: state
+    entity_id: !input entities_on
+    from: "unavailable"
+    id: on_recovered
+  - platform: state
+    entity_id: !input entities_on
+    from: "unknown"
+    id: on_recovered
+  - platform: state
+    entity_id: !input entities_off
+    from: "unavailable"
+    id: off_recovered
+  - platform: state
+    entity_id: !input entities_off
+    from: "unknown"
+    id: off_recovered
+
+condition:
+  # Only act when it has actually come back to a real state.
+  - condition: template
+    value_template: >
+      {{ trigger.to_state is not none
+         and trigger.to_state.state not in ['unavailable', 'unknown', 'none'] }}
+
+action:
+  - delay: !input settle_delay
+  # Re-check it is still available after the settle delay (skip flapping devices).
+  - condition: template
+    value_template: >
+      {{ states(trigger.entity_id) not in ['unavailable', 'unknown', 'none'] }}
+  - choose:
+      - conditions:
+          - condition: trigger
+            id: on_recovered
+        sequence:
+          - service: homeassistant.turn_on
+            target:
+              entity_id: "{{ trigger.entity_id }}"
+      - conditions:
+          - condition: trigger
+            id: off_recovered
+        sequence:
+          - service: homeassistant.turn_off
+            target:
+              entity_id: "{{ trigger.entity_id }}"

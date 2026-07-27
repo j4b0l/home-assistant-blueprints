@@ -11,6 +11,8 @@ A small collection of Home Assistant automation blueprints.
 | Consumable Stock Tracker | [`consumable-stock-tracker.yaml`](consumable-stock-tracker.yaml) | Generic version of the above for any depleting consumable. |
 | Accumulation Limit Tracker | [`accumulation-limit-tracker.yaml`](accumulation-limit-tracker.yaml) | Grow a value daily and warn how many days until it hits its max. |
 | Sensor-controlled Lights & Switches | [`sensor-triggered-lights.yaml`](sensor-triggered-lights.yaml) | Switch lights/switches from a door/motion sensor's state, with configurable on/off states, on- and off-delays, and a daily time window. |
+| Recover state after Unavailable | [`recover-switch-state-after-unavailable.yaml`](recover-switch-state-after-unavailable.yaml) | Force listed devices ON/OFF when they come back from unavailable (e.g. after a power outage). Note: for true "restore previous state", prefer the device's own power-on setting. |
+| Battery level monitor & notification | [`battery-level-monitor.yaml`](battery-level-monitor.yaml) | Twice-daily push listing every battery sensor at/below a critical level (default 10%) or unreachable, with each device's area. Auto-monitors all battery sensors except an exclude list. |
 
 ## Human-made disclaimer
 
@@ -24,6 +26,12 @@ Of course not everything is just LLM hallucinating, ideas are mine. Or I should
 say needs are mine, these are the solutions.
 
 With any OSS, feel free to use, be careful, godspede!
+
+## One more human-made disclaimer (srsly? YUP!)
+
+I'm not HASS expert nor AI/LLM expert, I commit and test in my own environment.
+Seriously, these are my experiments, maybe one day I will productionize these
+blueprints, for now these are my own "hallucinations" ;)
 
 ## Disclaimer
 

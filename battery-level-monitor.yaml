@@ -1,0 +1,195 @@
+blueprint:
+  name: Battery level monitor & notification
+  description: |
+    Watch every battery sensor in Home Assistant and send a twice-daily push
+    notification listing the ones that need attention — including which area
+    each one is in.
+
+    What it does:
+      - Automatically monitors ALL sensors with device class "battery" (the ones
+        that report a percentage). You do not list them; you only list the ones
+        to EXCLUDE.
+      - Reports every monitored sensor that is at or below the critical level
+        (default 10%).
+      - Treats an unreachable sensor (state "unavailable"/"unknown") as an empty
+        battery and lists it separately, so a dead/dropped device is not silently
+        ignored.
+      - For each reported sensor it shows the sensor name, the value (for low
+        ones) and the AREA it belongs to (resolved from the sensor's device).
+      - Fires at two configurable times a day (default 09:00 and 21:00) and
+        notifies the selected companion-app devices. By default nothing is sent
+        when every battery is fine.
+
+    Notes / limitations:
+      - Only numeric "battery" sensors are covered (device class battery, unit
+        %). Binary "battery low" sensors are not included.
+      - Unreachable detection relies on Home Assistant still reporting the sensor
+        with the battery device class while it is offline (true for the common
+        integrations). A sensor that drops its device class entirely when offline
+        cannot be auto-detected.
+      - The area is the sensor's (or its device's) assigned area; sensors with no
+        area are shown as "no area".
+
+    Version: 2026-07-27
+  domain: automation
+
+  input:
+    battery_section:
+      name: Battery sensors
+      icon: mdi:battery-alert
+      input:
+        excluded_entities:
+          name: Excluded battery sensors
+          description: >
+            Battery sensors to ignore. Every OTHER sensor with device class
+            "battery" is monitored automatically — you don't list the included
+            ones, only the exceptions.
+          default: []
+          selector:
+            entity:
+              multiple: true
+              filter:
+                - domain: sensor
+                  device_class: battery
+
+    threshold_section:
+      name: Thresholds
+      icon: mdi:battery-low
+      input:
+        critical_level:
+          name: Critical level (%)
+          description: >
+            Sensors at or below this percentage are reported as low.
+          default: 10
+          selector:
+            number:
+              min: 1
+              max: 100
+              step: 1
+              unit_of_measurement: "%"
+              mode: slider
+        treat_unavailable_as_empty:
+          name: Treat unreachable as empty
+          description: >
+            On by default: a sensor that is unavailable/unknown is reported as an
+            empty battery (listed under "Unreachable"). Turn off to ignore
+            offline sensors.
+          default: true
+          selector:
+            boolean: {}
+
+    schedule_section:
+      name: Schedule
+      icon: mdi:clock-outline
+      input:
+        notify_time_1:
+          name: First notification time
+          description: First daily check (default 09:00).
+          default: "09:00:00"
+          selector:
+            time: {}
+        notify_time_2:
+          name: Second notification time
+          description: Second daily check (default 21:00), ~12 h later.
+          default: "21:00:00"
+          selector:
+            time: {}
+
+    notify_section:
+      name: Notification
+      icon: mdi:bell
+      input:
+        notify_devices:
+          name: Notification targets
+          description: One or more mobile devices to notify (companion app).
+          selector:
+            device:
+              multiple: true
+              filter:
+                - integration: mobile_app
+        notify_title:
+          name: Notification title
+          default: "🔋 Battery check"
+          selector:
+            text: {}
+        notify_when_all_ok:
+          name: Also notify when everything is fine
+          description: >
+            Off by default — you only get a message when something is low or
+            unreachable. Turn on to always receive a status message at each check.
+          default: false
+          selector:
+            boolean: {}
+
+mode: single
+max_exceeded: silent
+
+variables:
+  excluded_entities: !input excluded_entities
+  critical_level: !input critical_level
+  treat_unavailable_as_empty: !input treat_unavailable_as_empty
+  notify_when_all_ok: !input notify_when_all_ok
+  # Scan every battery sensor (minus the excluded ones) once and split it into
+  # "low" (at/below critical) and "dead" (unavailable). Each row carries its area.
+  report: >
+    {% set crit = critical_level | float(10) %}
+    {% set ns = namespace(low=[], dead=[]) %}
+    {% for s in states.sensor
+         | selectattr('attributes.device_class', 'defined')
+         | selectattr('attributes.device_class', 'eq', 'battery')
+         | rejectattr('entity_id', 'in', excluded_entities) %}
+      {% set area = area_name(s.entity_id) or 'no area' %}
+      {% if s.state in ['unavailable', 'unknown', 'none'] %}
+        {% set ns.dead = ns.dead + [{'name': s.name, 'area': area}] %}
+      {% elif 0 <= (s.state | float(-1)) <= crit %}
+        {% set ns.low = ns.low + [{'name': s.name, 'level': s.state, 'area': area}] %}
+      {% endif %}
+    {% endfor %}
+    {{ {'low': ns.low, 'dead': ns.dead} }}
+
+trigger:
+  - platform: time
+    at: !input notify_time_1
+  - platform: time
+    at: !input notify_time_2
+
+condition: []
+
+action:
+  - variables:
+      low: "{{ report.low }}"
+      dead: "{{ report.dead if treat_unavailable_as_empty else [] }}"
+      summary: >-
+        {%- set ns = namespace(lines=[]) -%}
+        {%- if low | count > 0 -%}
+          {%- set ns.lines = ns.lines + ['🔋 Low (≤ ' ~ critical_level ~ '%):'] -%}
+          {%- for r in low -%}
+            {%- set ns.lines = ns.lines + ['• ' ~ r.name ~ ' — ' ~ r.level ~ '% (' ~ r.area ~ ')'] -%}
+          {%- endfor -%}
+        {%- endif -%}
+        {%- if dead | count > 0 -%}
+          {%- set ns.lines = ns.lines + ['📵 Unreachable:'] -%}
+          {%- for r in dead -%}
+            {%- set ns.lines = ns.lines + ['• ' ~ r.name ~ ' (' ~ r.area ~ ')'] -%}
+          {%- endfor -%}
+        {%- endif -%}
+        {%- if ns.lines | count == 0 -%}
+          {%- set ns.lines = ['✅ All batteries OK.'] -%}
+        {%- endif -%}
+        {{ ns.lines | join('\n') }}
+  # Only notify when something needs attention (unless "notify when all OK" is on).
+  - if:
+      - condition: template
+        value_template: >
+          {{ (low | count > 0) or (dead | count > 0) or notify_when_all_ok }}
+    then:
+      - repeat:
+          for_each: !input notify_devices
+          sequence:
+            # Device actions reject a templated device_id, so call the mobile_app
+            # notify service built from the device's (original) name instead.
+            - service: >-
+                notify.mobile_app_{{ device_attr(repeat.item, 'name') | slugify }}
+              data:
+                title: !input notify_title
+                message: "{{ summary }}"
