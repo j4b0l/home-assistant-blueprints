@@ -13,6 +13,7 @@ A small collection of Home Assistant automation blueprints.
 | Sensor-controlled Lights & Switches | [`sensor-triggered-lights.yaml`](sensor-triggered-lights.yaml) | Switch lights/switches from a door/motion sensor's state, with configurable on/off states, on- and off-delays, and a daily time window. |
 | Recover state after Unavailable | [`recover-switch-state-after-unavailable.yaml`](recover-switch-state-after-unavailable.yaml) | Force listed devices ON/OFF when they come back from unavailable (e.g. after a power outage). Note: for true "restore previous state", prefer the device's own power-on setting. |
 | Battery level monitor & notification | [`battery-level-monitor.yaml`](battery-level-monitor.yaml) | Twice-daily push listing every battery sensor at/below a critical level (default 10%) or unreachable, with each device's area. Auto-monitors all battery sensors except an exclude list. |
+| Bulbulator (1 + 2 light cycler) | [`bulbulator.yaml`](bulbulator.yaml) | Cycle a two-switch fixture (1 bulb + 2 bulbs) through 0→1→2→3 bulbs with a single tappable button. No helpers — reads the switches' own state. |
 
 ## Human-made disclaimer
 

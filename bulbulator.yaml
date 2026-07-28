@@ -1,0 +1,92 @@
+blueprint:
+  name: Bulbulator (1 + 2 light cycler)
+  description: |
+    A dead-simple light-fixture controller for a fixture wired to **two
+    switches**: one switch drives **1** bulb, the other drives **2** bulbs. Each
+    tap advances the fixture one step through the cycle:
+
+      0 → both off        (0 bulbs)
+      1 → only switch 1   (1 bulb)
+      2 → only switch 2   (2 bulbs)
+      3 → both on         (3 bulbs)
+      → back to 0
+
+    One blueprint instance per switch pair. No helpers required — the current
+    step is read straight from the two switches' on/off state, so the fixture
+    stays in sync even if you flip a physical switch by hand.
+
+    How the tappable "cycle" button works:
+      This automation has no time/state trigger; it only runs when you call the
+      "Run actions" service on it. Put a button on your dashboard whose tap runs
+      this automation and you get a single tappable icon that cycles the light.
+
+      Example button card (replace the entity_id with this automation's):
+
+        type: button
+        name: Kitchen light
+        icon: mdi:ceiling-light-multiple
+        show_state: false
+        tap_action:
+          action: perform-action
+          perform_action: automation.trigger
+          target:
+            entity_id: automation.bulbulator_kitchen
+          data:
+            skip_condition: true
+
+      (Optional) a dynamic icon showing the current count needs a templated card
+      such as custom:button-card; the standard button above just cycles on tap.
+
+    Version: 2026-07-27
+  domain: automation
+
+  input:
+    lights_section:
+      name: Switches
+      icon: mdi:ceiling-light-multiple
+      input:
+        switch_one_bulb:
+          name: Switch 1 (controls 1 bulb)
+          description: The switch/light entity that drives a single bulb.
+          selector:
+            entity:
+              filter:
+                - domain: switch
+                - domain: light
+        switch_two_bulbs:
+          name: Switch 2 (controls 2 bulbs)
+          description: The switch/light entity that drives the pair of bulbs.
+          selector:
+            entity:
+              filter:
+                - domain: switch
+                - domain: light
+
+# Ignore extra taps that arrive while a cycle step is still being applied.
+mode: single
+max_exceeded: silent
+
+variables:
+  switch_one_bulb: !input switch_one_bulb
+  switch_two_bulbs: !input switch_two_bulbs
+
+# No automatic trigger: this runs only via automation.trigger (the tap button).
+trigger: []
+condition: []
+
+action:
+  - variables:
+      # Current step = switch1 (bit 0, +1) + switch2 (bit 1, +2). With 1 bulb on
+      # switch 1 and 2 bulbs on switch 2, this value also equals the bulb count.
+      cur: >
+        {{ (1 if is_state(switch_one_bulb, 'on') else 0)
+         + (2 if is_state(switch_two_bulbs, 'on') else 0) }}
+      nxt: "{{ (cur | int + 1) % 4 }}"
+  # Switch 1 is on for steps 1 and 3.
+  - service: "{{ 'homeassistant.turn_on' if nxt | int in [1, 3] else 'homeassistant.turn_off' }}"
+    target:
+      entity_id: !input switch_one_bulb
+  # Switch 2 is on for steps 2 and 3.
+  - service: "{{ 'homeassistant.turn_on' if nxt | int in [2, 3] else 'homeassistant.turn_off' }}"
+    target:
+      entity_id: !input switch_two_bulbs
