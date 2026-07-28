@@ -13,7 +13,13 @@ A small collection of Home Assistant automation blueprints.
 | Sensor-controlled Lights & Switches | [`sensor-triggered-lights.yaml`](sensor-triggered-lights.yaml) | Switch lights/switches from a door/motion sensor's state, with configurable on/off states, on- and off-delays, and a daily time window. |
 | Recover state after Unavailable | [`recover-switch-state-after-unavailable.yaml`](recover-switch-state-after-unavailable.yaml) | Force listed devices ON/OFF when they come back from unavailable (e.g. after a power outage). Note: for true "restore previous state", prefer the device's own power-on setting. |
 | Battery level monitor & notification | [`battery-level-monitor.yaml`](battery-level-monitor.yaml) | Twice-daily push listing every battery sensor at/below a critical level (default 10%) or unreachable, with each device's area. Auto-monitors all battery sensors except an exclude list. |
-| Bulbulator (1 + 2 light cycler) | [`bulbulator.yaml`](bulbulator.yaml) | Cycle a two-switch fixture (1 bulb + 2 bulbs) through 0→1→2→3 bulbs with a single tappable button. No helpers — reads the switches' own state. |
+| Bulbulator - single-room light cycler | [`bulbulator-single-room-cycler.yaml`](bulbulator-single-room-cycler.yaml) | Cycle a two-switch fixture (1 bulb + 2 bulbs) through 0→1→2→3 bulbs with a single tappable button. No helpers — reads the switches' own state. |
+| Bulbulator - input number bulb control | [`bulbulator-input-number-bulb-control.yaml`](bulbulator-input-number-bulb-control.yaml) | Drive the same 1+2 fixture from a 0–3 input_number "brightness" slider (value = bulb count) instead of tap-cycling. |
+| Bulbulator - multi-room route light cycler | [`bulbulator-multi-room-route-cycler.yaml`](bulbulator-multi-room-route-cycler.yaml) | Move a single lit light along an ordered route of any length; furthest-on = current point, each tap advances one and turns the rest off, then all-off. No helpers. |
+
+> Dashboard cards for the three Bulbulator blueprints (dynamic `custom:button-card`
+> tap buttons + sliders): [`docs/bulbulator-cards.md`](docs/bulbulator-cards.md).
+| IKEA BILRESA dual button — toggle switches/lights | [`bilresa-dual-button-switches.yaml`](bilresa-dual-button-switches.yaml) | Toggle up to 6 lights/switches from a BILRESA dual button (single / double / held-and-released per button). Ignores unavailable state entirely. |
 
 ## Human-made disclaimer
 

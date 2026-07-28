@@ -1,0 +1,88 @@
+blueprint:
+  name: Bulbulator - multi-room route light cycler
+  description: |
+    Move a single lit light along an ordered ROUTE of lights/switches — like
+    lighting your way room by room. Each tap moves the lit one to the NEXT entry
+    in the configured order and turns everything else off. After the last entry
+    the next tap turns everything off, and the cycle restarts:
+
+      tap:  (all off) → #1 on → #2 on → … → #N on → (all off) → …
+
+    Configure ANY number of lights/switches; the order you add them IS the route.
+
+    No helpers — the current point is read from the lights themselves. The
+    FURTHEST-along entity that is currently on is treated as the current point
+    (so a light you switched on by hand is respected); cycling then lights only
+    the next one in the route and turns the rest of the route off.
+
+    Add a tappable button that runs this automation (one tap = one step):
+
+      type: button
+      name: Hallway route
+      icon: mdi:transit-connection-variant
+      show_state: false
+      tap_action:
+        action: perform-action
+        perform_action: automation.trigger
+        target:
+          entity_id: automation.bulbulator_hallway
+        data:
+          skip_condition: true
+
+    Version: 2026-07-28
+  domain: automation
+
+  input:
+    route_section:
+      name: Route
+      icon: mdi:transit-connection-variant
+      input:
+        route_entities:
+          name: Lights / switches in order
+          description: >
+            The ordered list of lights/switches. The order you add them is the
+            route; each tap moves the single lit one to the next entry.
+          selector:
+            entity:
+              multiple: true
+              filter:
+                - domain: switch
+                - domain: light
+
+# Ignore extra taps that arrive while a step is still being applied.
+mode: single
+max_exceeded: silent
+
+variables:
+  route_entities: !input route_entities
+
+# No automatic trigger: this runs only via automation.trigger (the tap button).
+trigger: []
+condition: []
+
+action:
+  - variables:
+      count: "{{ route_entities | count }}"
+      # Current point = highest 1-based index that is currently on (0 = none on).
+      cur: >
+        {% set ns = namespace(cur=0) %}
+        {% for e in route_entities %}
+          {% if is_state(e, 'on') %}{% set ns.cur = loop.index %}{% endif %}
+        {% endfor %}
+        {{ ns.cur }}
+      # Advance one step; wrap to 0 (all off) after the last entry.
+      nxt: "{{ (cur | int + 1) if (cur | int) < (count | int) else 0 }}"
+      on_target: "{{ [ route_entities[nxt | int - 1] ] if (nxt | int) >= 1 else [] }}"
+      off_targets: "{{ route_entities | reject('in', on_target) | list }}"
+  # Turn off the rest of the route first...
+  - if: "{{ off_targets | count > 0 }}"
+    then:
+      - service: homeassistant.turn_off
+        target:
+          entity_id: "{{ off_targets }}"
+  # ...then light the current point (nothing to light when wrapping to all-off).
+  - if: "{{ on_target | count > 0 }}"
+    then:
+      - service: homeassistant.turn_on
+        target:
+          entity_id: "{{ on_target }}"

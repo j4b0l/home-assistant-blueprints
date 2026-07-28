@@ -1,0 +1,85 @@
+blueprint:
+  name: Bulbulator - input number bulb control
+  description: |
+    Drive a two-switch light fixture (1 bulb + 2 bulbs) from a single number
+    (0–3) — a coarse "brightness" slider for the bulb COUNT:
+
+      0 → both off        (0 bulbs)
+      1 → only switch 1   (1 bulb)
+      2 → only switch 2   (2 bulbs)
+      3 → both on         (3 bulbs)
+
+    The number value equals how many bulbs are lit. Point it at an input_number
+    helper configured as min 0 / max 3 / step 1 (set its display mode to
+    "slider") and just slide it.
+
+    One instance per fixture. Setting the number applies immediately; this is
+    one-way control (flipping the physical switches by hand does not move the
+    slider back).
+
+    Version: 2026-07-28
+  domain: automation
+
+  input:
+    fixture_section:
+      name: Fixture
+      icon: mdi:ceiling-light-multiple
+      input:
+        control_number:
+          name: Control number (0–3)
+          description: >
+            An input_number helper (min 0, max 3, step 1; display "slider") whose
+            value is the number of bulbs to light.
+          selector:
+            entity:
+              filter:
+                - domain: input_number
+        switch_one_bulb:
+          name: Switch 1 (controls 1 bulb)
+          description: The switch/light entity that drives a single bulb.
+          selector:
+            entity:
+              filter:
+                - domain: switch
+                - domain: light
+        switch_two_bulbs:
+          name: Switch 2 (controls 2 bulbs)
+          description: The switch/light entity that drives the pair of bulbs.
+          selector:
+            entity:
+              filter:
+                - domain: switch
+                - domain: light
+
+# Latest slider value wins if it is dragged quickly.
+mode: restart
+max_exceeded: silent
+
+variables:
+  control_number: !input control_number
+  switch_one_bulb: !input switch_one_bulb
+  switch_two_bulbs: !input switch_two_bulbs
+
+trigger:
+  - platform: state
+    entity_id: !input control_number
+    id: number
+  # Re-apply the current number after a restart so the fixture matches the slider.
+  - platform: homeassistant
+    event: start
+    id: start
+
+condition: []
+
+action:
+  - variables:
+      # Clamp to 0..3; that value IS the bulb count (switch1 = bit 0, switch2 = bit 1).
+      n: "{{ [ [ states(control_number) | float(0) | round(0) | int, 0 ] | max, 3 ] | min }}"
+  # Switch 1 (1 bulb) is on for counts 1 and 3.
+  - service: "{{ 'homeassistant.turn_on' if n | int in [1, 3] else 'homeassistant.turn_off' }}"
+    target:
+      entity_id: !input switch_one_bulb
+  # Switch 2 (2 bulbs) is on for counts 2 and 3.
+  - service: "{{ 'homeassistant.turn_on' if n | int in [2, 3] else 'homeassistant.turn_off' }}"
+    target:
+      entity_id: !input switch_two_bulbs

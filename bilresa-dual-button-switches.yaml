@@ -1,0 +1,173 @@
+blueprint:
+  name: IKEA BILRESA dual button — toggle switches/lights
+  description: |
+    Control up to six lights/switches from an IKEA **BILRESA dual button**
+    (Matter). Each of the two buttons has three actions, and each action toggles
+    one configurable light or switch:
+
+      - Single press          (Matter event: multi_press_1)
+      - Double press          (Matter event: multi_press_2)
+      - Held down & released  (Matter event: long_release)
+
+    2 buttons × 3 actions = up to 6 targets. Every target is optional — leave a
+    slot empty and that action does nothing.
+
+    Unavailable is completely ignored:
+      This blueprint looks ONLY at the two button "event" entities and never at
+      the battery/voltage/other sensors, so their availability is irrelevant. It
+      also fires only on a genuine press (a real timestamp → newer timestamp
+      change on the event entity); when a button entity drops to "unavailable"
+      and later comes back, that transition is skipped instead of being treated
+      as a press. So a flaky/unavailable device never blocks handling and never
+      toggles a light by accident on reconnect.
+
+    Setup:
+      Pick the two event entities of your dual button — they look like
+      event.<name>_button_1 and event.<name>_button_2 (device class "button",
+      with event types multi_press_1 / multi_press_2 / long_press / long_release).
+
+    Note: the "held" action fires on RELEASE (long_release), not while holding
+    (long_press is intentionally not used). Only numeric single/double/hold
+    events are handled.
+
+    Version: 2026-07-28
+  domain: automation
+
+  input:
+    device_section:
+      name: BILRESA dual button
+      icon: mdi:gesture-double-tap
+      input:
+        button_1_event:
+          name: Button 1 event entity
+          description: >
+            The event.* entity for the first button, e.g.
+            event.bilresa_dual_button_button_1.
+          selector:
+            entity:
+              filter:
+                - domain: event
+                  device_class: button
+        button_2_event:
+          name: Button 2 event entity
+          description: >
+            The event.* entity for the second button, e.g.
+            event.bilresa_dual_button_button_2.
+          selector:
+            entity:
+              filter:
+                - domain: event
+                  device_class: button
+
+    button_1_section:
+      name: Button 1 — targets
+      icon: mdi:numeric-1-box
+      input:
+        b1_single:
+          name: "Button 1 · single press → toggle"
+          description: Light/switch toggled on a single press of button 1.
+          default:
+          selector:
+            entity:
+              filter:
+                - domain: switch
+                - domain: light
+        b1_double:
+          name: "Button 1 · double press → toggle"
+          description: Light/switch toggled on a double press of button 1.
+          default:
+          selector:
+            entity:
+              filter:
+                - domain: switch
+                - domain: light
+        b1_hold:
+          name: "Button 1 · held & released → toggle"
+          description: Light/switch toggled when button 1 is held and released.
+          default:
+          selector:
+            entity:
+              filter:
+                - domain: switch
+                - domain: light
+
+    button_2_section:
+      name: Button 2 — targets
+      icon: mdi:numeric-2-box
+      input:
+        b2_single:
+          name: "Button 2 · single press → toggle"
+          description: Light/switch toggled on a single press of button 2.
+          default:
+          selector:
+            entity:
+              filter:
+                - domain: switch
+                - domain: light
+        b2_double:
+          name: "Button 2 · double press → toggle"
+          description: Light/switch toggled on a double press of button 2.
+          default:
+          selector:
+            entity:
+              filter:
+                - domain: switch
+                - domain: light
+        b2_hold:
+          name: "Button 2 · held & released → toggle"
+          description: Light/switch toggled when button 2 is held and released.
+          default:
+          selector:
+            entity:
+              filter:
+                - domain: switch
+                - domain: light
+
+mode: queued
+max: 10
+max_exceeded: silent
+
+variables:
+  b1_single: !input b1_single
+  b1_double: !input b1_double
+  b1_hold: !input b1_hold
+  b2_single: !input b2_single
+  b2_double: !input b2_double
+  b2_hold: !input b2_hold
+
+trigger:
+  - platform: state
+    entity_id: !input button_1_event
+    id: b1
+  - platform: state
+    entity_id: !input button_2_event
+    id: b2
+
+condition: []
+
+action:
+  - variables:
+      # Which action fired, and the target mapped to (button, event_type).
+      event_type: "{{ trigger.to_state.attributes.event_type }}"
+      target: >
+        {% set m = {
+          'b1|multi_press_1': b1_single,
+          'b1|multi_press_2': b1_double,
+          'b1|long_release':  b1_hold,
+          'b2|multi_press_1': b2_single,
+          'b2|multi_press_2': b2_double,
+          'b2|long_release':  b2_hold } %}
+        {{ m.get(trigger.id ~ '|' ~ (event_type | string), none) }}
+  # Act only on a genuine press (real timestamp both before and after, so
+  # unavailable/unknown transitions are ignored) that maps to a configured
+  # target. Unhandled events (e.g. long_press) map to nothing and stop here.
+  - condition: template
+    value_template: >
+      {{ trigger.to_state is not none
+         and trigger.to_state.state not in ['unavailable', 'unknown', 'none']
+         and trigger.from_state is not none
+         and trigger.from_state.state not in ['unavailable', 'unknown', 'none']
+         and target not in [none, '', []] }}
+  - service: homeassistant.toggle
+    target:
+      entity_id: "{{ target }}"

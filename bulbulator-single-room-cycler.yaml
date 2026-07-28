@@ -1,5 +1,5 @@
 blueprint:
-  name: Bulbulator (1 + 2 light cycler)
+  name: Bulbulator - single-room light cycler
   description: |
     A dead-simple light-fixture controller for a fixture wired to **two
     switches**: one switch drives **1** bulb, the other drives **2** bulbs. Each
