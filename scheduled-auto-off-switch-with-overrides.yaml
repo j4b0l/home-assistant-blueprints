@@ -14,24 +14,34 @@ blueprint:
       4. MANUAL — if you turn the target on by hand OUTSIDE every window and
          override, it stays on and is automatically switched off after the
          "manual off after" time. If that timeout would land inside a scheduled
-         window, the target stays on and only goes off when the window ends.
+         window, the target stays on and only goes off once the window ends.
 
     Override release: when ALWAYS ON turns off (or ALWAYS OFF clears), the target
-    is re-decided from the SCHEDULE ONLY — it is not treated as a fresh manual-on,
-    so it will not linger on the manual timeout.
+    is re-decided from the SCHEDULE ONLY — a state that was forced by an override
+    is not treated as a manual-on, so it will not linger on the manual timeout.
+
+    Manual timing survives the switch going unavailable:
+      The manual-on start time is stored in an input_datetime helper, written
+      once when you turn the switch on by hand and NOT rewritten when the switch
+      merely drops to "unavailable" and comes back. So the timeout counts real
+      elapsed wall-clock time and the switch is turned off when the time has
+      passed, even across a disconnect (or a Home Assistant restart). Using the
+      switch's own last_changed would reset on every reconnect — hence the helper.
+
+    Setup:
+      Create a Date and time helper (Settings -> Devices & Services -> Helpers ->
+      Date and time, with BOTH date and time enabled) and select it below. It is
+      managed automatically; do not edit it by hand.
 
     Notes:
-      - Manual-vs-scheduled is detected without any helper: the switch's own
-        last_changed is tested against the schedule. On = started inside a window
-        -> scheduled (off at window end); on = started outside all windows ->
-        manual (honours the timeout).
       - "Manual off after" = 0 disables the manual timeout (a manual on then stays
         on until an override acts or you turn it off).
-      - A time window with start == end, or with no weekdays selected, is ignored.
+      - A window with start == end, or with no weekdays selected, is ignored.
         A window whose end is earlier than its start is treated as crossing
         midnight.
       - While inside a schedule window the target is kept on; if you switch it off
-        by hand it will be turned back on at the next check (the schedule wins).
+        by hand it is turned back on at the next check (the schedule wins).
+      - If both "always off" and "always on" are active at once, OFF wins.
 
     Version: 2026-07-29
   domain: automation
@@ -85,7 +95,7 @@ blueprint:
           description: >
             When the target is turned on by hand (outside windows and overrides),
             switch it off after this long. 0 = never auto-off. If the timeout
-            lands inside a scheduled window, the target only goes off when the
+            lands inside a scheduled window, the target only goes off once the
             window ends.
           default:
             hours: 0
@@ -93,6 +103,16 @@ blueprint:
             seconds: 0
           selector:
             duration: {}
+        manual_timer_helper:
+          name: Manual-on timer helper
+          description: >
+            An input_datetime helper (date + time) used to remember when the
+            target was turned on by hand, so the timeout survives the switch
+            going unavailable and Home Assistant restarts. Managed automatically.
+          selector:
+            entity:
+              filter:
+                - domain: input_datetime
 
     schedule_1_section:
       name: Schedule 1
@@ -194,6 +214,7 @@ variables:
   target: !input target
   always_on_switch: !input always_on_switch
   manual_off_after: !input manual_off_after
+  helper: !input manual_timer_helper
   sch1_days: !input sch1_days
   sch1_start: !input sch1_start
   sch1_end: !input sch1_end
@@ -233,38 +254,7 @@ variables:
       {% endif %}
     {% endfor %}
     {{ ns.x }}
-  # Was a schedule window active at the moment the target last changed state?
-  # (Used to tell a scheduled-on apart from a manual-on.)
-  lc_in_schedule: >-
-    {% set days = ['mon','tue','wed','thu','fri','sat','sun'] %}
-    {% set lc = states[target].last_changed if states[target] is not none else none %}
-    {% if lc is none %}
-      {{ false }}
-    {% else %}
-      {% set l = as_local(lc) %}
-      {% set wd = days[l.weekday()] %}
-      {% set n = l.strftime('%H:%M:%S') %}
-      {% set ns = namespace(x=false) %}
-      {% for s in schedules %}
-        {% if s.start != s.end and wd in (s.days or []) %}
-          {% if s.start < s.end %}
-            {% if s.start <= n and n < s.end %}{% set ns.x = true %}{% endif %}
-          {% else %}
-            {% if n >= s.start or n < s.end %}{% set ns.x = true %}{% endif %}
-          {% endif %}
-        {% endif %}
-      {% endfor %}
-      {{ ns.x }}
-    {% endif %}
-  on_secs: >-
-    {{ (as_timestamp(now()) - as_timestamp(states[target].last_changed)) | int(0)
-       if states[target] is not none else 0 }}
   always_on_on: "{{ is_state(always_on_switch, 'on') }}"
-  # Keep a manual-on running? On, started outside every window, and either the
-  # timeout is disabled (0) or not yet elapsed.
-  manual_pending: >-
-    {{ is_state(target, 'on') and not lc_in_schedule
-       and (manual_secs | int == 0 or on_secs | int < manual_secs | int) }}
 
 trigger:
   - platform: time_pattern
@@ -289,59 +279,90 @@ condition: []
 
 action:
   - choose:
-      # 1) ALWAYS OFF (hard lockout) — wins over everything.
-      - conditions: !input always_off_condition
-        sequence:
-          - if:
-              - "{{ not is_state(target, 'off') }}"
-            then:
-              - service: homeassistant.turn_off
-                target:
-                  entity_id: "{{ target }}"
-      # 2) ALWAYS ON virtual switch.
+      # Target unavailable/unknown -> do nothing at all, so the manual timer
+      # helper is preserved and the elapsed time keeps counting across the blip.
       - conditions:
-          - "{{ always_on_on }}"
-        sequence:
-          - if:
-              - "{{ not is_state(target, 'on') }}"
-            then:
-              - service: homeassistant.turn_on
-                target:
-                  entity_id: "{{ target }}"
-      # 3) Inside a scheduled window.
-      - conditions:
-          - "{{ in_schedule }}"
-        sequence:
-          - if:
-              - "{{ not is_state(target, 'on') }}"
-            then:
-              - service: homeassistant.turn_on
-                target:
-                  entity_id: "{{ target }}"
+          - "{{ states(target) in ['unavailable', 'unknown'] }}"
+        sequence: []
     default:
-      # No override, no window.
       - choose:
-          # Override just released (always-on -> off): schedule-only, so (not in
-          # a window here) force OFF instead of honouring the manual timeout.
-          - conditions:
-              - "{{ trigger.id == 'aon_off' }}"
+          # 1) ALWAYS OFF (hard lockout). Forget any manual-on.
+          - conditions: !input always_off_condition
             sequence:
+              - service: input_datetime.set_datetime
+                target:
+                  entity_id: "{{ helper }}"
+                data:
+                  timestamp: 0
               - if:
                   - "{{ not is_state(target, 'off') }}"
                 then:
                   - service: homeassistant.turn_off
                     target:
                       entity_id: "{{ target }}"
-          # A manual-on is still within its timeout -> leave it running.
+          # 2) ALWAYS ON virtual switch. Forget any manual-on.
           - conditions:
-              - "{{ manual_pending }}"
-            sequence: []
-        # Otherwise (manual timeout elapsed, or a scheduled window just ended,
-        # or nothing is on) -> off.
-        default:
-          - if:
-              - "{{ not is_state(target, 'off') }}"
-            then:
-              - service: homeassistant.turn_off
+              - "{{ always_on_on }}"
+            sequence:
+              - service: input_datetime.set_datetime
                 target:
-                  entity_id: "{{ target }}"
+                  entity_id: "{{ helper }}"
+                data:
+                  timestamp: 0
+              - if:
+                  - "{{ not is_state(target, 'on') }}"
+                then:
+                  - service: homeassistant.turn_on
+                    target:
+                      entity_id: "{{ target }}"
+          # 3) Inside a scheduled window. (Do NOT touch the manual helper, so a
+          #    manual-on that predates the window still times out correctly.)
+          - conditions:
+              - "{{ in_schedule }}"
+            sequence:
+              - if:
+                  - "{{ not is_state(target, 'on') }}"
+                then:
+                  - service: homeassistant.turn_on
+                    target:
+                      entity_id: "{{ target }}"
+        default:
+          # No override, no window.
+          # (a) Detect the START of a manual-on: only on a real target state
+          #     change to 'on', and only if the helper is not already set. A
+          #     reconnect (unavailable -> on) also fires this trigger, but the
+          #     helper is already set then, so the original time is preserved.
+          - if:
+              - "{{ trigger.id == 'target' }}"
+              - "{{ is_state(target, 'on') }}"
+              - "{{ (state_attr(helper, 'timestamp') | float(0)) <= 946684800 }}"
+            then:
+              - service: input_datetime.set_datetime
+                target:
+                  entity_id: "{{ helper }}"
+                data:
+                  timestamp: "{{ as_timestamp(now()) | int }}"
+          # (b) Decide, reading the helper fresh (after any set above).
+          - choose:
+              # Manual-on still within its timeout (or timeout disabled) -> keep.
+              - conditions:
+                  - "{{ is_state(target, 'on') }}"
+                  - >-
+                    {{ (state_attr(helper, 'timestamp') | float(0)) > 946684800
+                       and (manual_secs | int == 0
+                            or (as_timestamp(now()) - (state_attr(helper, 'timestamp') | float(0))) < manual_secs | int) }}
+                sequence: []
+            default:
+              # Timeout elapsed, scheduled window just ended, override released,
+              # or nothing on -> off, and clear the manual timer.
+              - if:
+                  - "{{ not is_state(target, 'off') }}"
+                then:
+                  - service: homeassistant.turn_off
+                    target:
+                      entity_id: "{{ target }}"
+              - service: input_datetime.set_datetime
+                target:
+                  entity_id: "{{ helper }}"
+                data:
+                  timestamp: 0
