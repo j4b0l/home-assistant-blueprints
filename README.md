@@ -20,6 +20,7 @@ A small collection of Home Assistant automation blueprints.
 > Dashboard cards for the three Bulbulator blueprints (dynamic `custom:button-card`
 > tap buttons + sliders): [`docs/bulbulator-cards.md`](docs/bulbulator-cards.md).
 | IKEA BILRESA dual button — toggle switches/lights | [`bilresa-dual-button-switches.yaml`](bilresa-dual-button-switches.yaml) | Toggle up to 6 lights/switches from a BILRESA dual button (single / double / held-and-released per button). Ignores unavailable state entirely. |
+| Scheduled & auto-off switch with overrides | [`scheduled-auto-off-switch-with-overrides.yaml`](scheduled-auto-off-switch-with-overrides.yaml) | Drive one switch/light from up to 3 weekly time windows, with an "always on" virtual switch, an "always off" condition, and a manual-on auto-off timeout (deferred to the end of an active window). |
 
 ## Human-made disclaimer
 

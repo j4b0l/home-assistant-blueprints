@@ -1,0 +1,347 @@
+blueprint:
+  name: Scheduled & auto-off switch with overrides
+  description: |
+    Drive ONE light/switch (e.g. a recirculation pump, heater, or lamp) from a
+    weekly schedule, with two overrides and a manual-on timeout.
+
+    Rules, in priority order:
+      1. ALWAYS OFF (condition) — while your "always off" condition(s) are true,
+         the target is forced OFF. Highest priority (a hard lockout).
+      2. ALWAYS ON (virtual switch) — while the chosen boolean/switch is on, the
+         target is forced ON.
+      3. SCHEDULE — up to 3 weekly time windows (pick weekdays + start/end).
+         Inside any active window the target is ON.
+      4. MANUAL — if you turn the target on by hand OUTSIDE every window and
+         override, it stays on and is automatically switched off after the
+         "manual off after" time. If that timeout would land inside a scheduled
+         window, the target stays on and only goes off when the window ends.
+
+    Override release: when ALWAYS ON turns off (or ALWAYS OFF clears), the target
+    is re-decided from the SCHEDULE ONLY — it is not treated as a fresh manual-on,
+    so it will not linger on the manual timeout.
+
+    Notes:
+      - Manual-vs-scheduled is detected without any helper: the switch's own
+        last_changed is tested against the schedule. On = started inside a window
+        -> scheduled (off at window end); on = started outside all windows ->
+        manual (honours the timeout).
+      - "Manual off after" = 0 disables the manual timeout (a manual on then stays
+        on until an override acts or you turn it off).
+      - A time window with start == end, or with no weekdays selected, is ignored.
+        A window whose end is earlier than its start is treated as crossing
+        midnight.
+      - While inside a schedule window the target is kept on; if you switch it off
+        by hand it will be turned back on at the next check (the schedule wins).
+
+    Version: 2026-07-29
+  domain: automation
+
+  input:
+    target_section:
+      name: Target
+      icon: mdi:pump
+      input:
+        target:
+          name: Light / switch to control
+          description: The single light or switch this automation drives.
+          selector:
+            entity:
+              filter:
+                - domain: switch
+                - domain: light
+
+    override_section:
+      name: Overrides
+      icon: mdi:toggle-switch
+      input:
+        always_on_switch:
+          name: "\"Always on\" virtual switch"
+          description: >
+            While this boolean/switch is ON, the target is forced on. Create an
+            input_boolean for it. Leave it off for normal scheduled operation.
+          selector:
+            entity:
+              filter:
+                - domain: input_boolean
+                - domain: switch
+                - domain: binary_sensor
+        always_off_condition:
+          name: "\"Always off\" condition"
+          description: >
+            While ANY of these conditions is true, the target is forced off
+            (highest priority). Leave empty to never force off.
+          default:
+            - condition: template
+              value_template: "{{ false }}"
+          selector:
+            condition: {}
+
+    manual_section:
+      name: Manual-on timeout
+      icon: mdi:timer-sand
+      input:
+        manual_off_after:
+          name: Manual off after
+          description: >
+            When the target is turned on by hand (outside windows and overrides),
+            switch it off after this long. 0 = never auto-off. If the timeout
+            lands inside a scheduled window, the target only goes off when the
+            window ends.
+          default:
+            hours: 0
+            minutes: 0
+            seconds: 0
+          selector:
+            duration: {}
+
+    schedule_1_section:
+      name: Schedule 1
+      icon: mdi:calendar-clock
+      input:
+        sch1_days:
+          name: "Schedule 1: weekdays"
+          default: []
+          selector:
+            select:
+              multiple: true
+              mode: list
+              options:
+                - {value: mon, label: Monday}
+                - {value: tue, label: Tuesday}
+                - {value: wed, label: Wednesday}
+                - {value: thu, label: Thursday}
+                - {value: fri, label: Friday}
+                - {value: sat, label: Saturday}
+                - {value: sun, label: Sunday}
+        sch1_start:
+          name: "Schedule 1: start"
+          default: "00:00:00"
+          selector:
+            time: {}
+        sch1_end:
+          name: "Schedule 1: end"
+          default: "00:00:00"
+          selector:
+            time: {}
+
+    schedule_2_section:
+      name: Schedule 2
+      icon: mdi:calendar-clock
+      collapsed: true
+      input:
+        sch2_days:
+          name: "Schedule 2: weekdays"
+          default: []
+          selector:
+            select:
+              multiple: true
+              mode: list
+              options:
+                - {value: mon, label: Monday}
+                - {value: tue, label: Tuesday}
+                - {value: wed, label: Wednesday}
+                - {value: thu, label: Thursday}
+                - {value: fri, label: Friday}
+                - {value: sat, label: Saturday}
+                - {value: sun, label: Sunday}
+        sch2_start:
+          name: "Schedule 2: start"
+          default: "00:00:00"
+          selector:
+            time: {}
+        sch2_end:
+          name: "Schedule 2: end"
+          default: "00:00:00"
+          selector:
+            time: {}
+
+    schedule_3_section:
+      name: Schedule 3
+      icon: mdi:calendar-clock
+      collapsed: true
+      input:
+        sch3_days:
+          name: "Schedule 3: weekdays"
+          default: []
+          selector:
+            select:
+              multiple: true
+              mode: list
+              options:
+                - {value: mon, label: Monday}
+                - {value: tue, label: Tuesday}
+                - {value: wed, label: Wednesday}
+                - {value: thu, label: Thursday}
+                - {value: fri, label: Friday}
+                - {value: sat, label: Saturday}
+                - {value: sun, label: Sunday}
+        sch3_start:
+          name: "Schedule 3: start"
+          default: "00:00:00"
+          selector:
+            time: {}
+        sch3_end:
+          name: "Schedule 3: end"
+          default: "00:00:00"
+          selector:
+            time: {}
+
+mode: queued
+max: 10
+max_exceeded: silent
+
+variables:
+  target: !input target
+  always_on_switch: !input always_on_switch
+  manual_off_after: !input manual_off_after
+  sch1_days: !input sch1_days
+  sch1_start: !input sch1_start
+  sch1_end: !input sch1_end
+  sch2_days: !input sch2_days
+  sch2_start: !input sch2_start
+  sch2_end: !input sch2_end
+  sch3_days: !input sch3_days
+  sch3_start: !input sch3_start
+  sch3_end: !input sch3_end
+  schedules: >-
+    {{ [
+      {'days': sch1_days, 'start': sch1_start, 'end': sch1_end},
+      {'days': sch2_days, 'start': sch2_start, 'end': sch2_end},
+      {'days': sch3_days, 'start': sch3_start, 'end': sch3_end}
+    ] }}
+  manual_secs: >-
+    {% if manual_off_after is mapping %}
+      {{ (manual_off_after.hours | default(0)) * 3600
+       + (manual_off_after.minutes | default(0)) * 60
+       + (manual_off_after.seconds | default(0)) }}
+    {% else %}
+      {{ manual_off_after | int(0) }}
+    {% endif %}
+  # Is a schedule window active NOW?
+  in_schedule: >-
+    {% set days = ['mon','tue','wed','thu','fri','sat','sun'] %}
+    {% set wd = days[now().weekday()] %}
+    {% set n = now().strftime('%H:%M:%S') %}
+    {% set ns = namespace(x=false) %}
+    {% for s in schedules %}
+      {% if s.start != s.end and wd in (s.days or []) %}
+        {% if s.start < s.end %}
+          {% if s.start <= n and n < s.end %}{% set ns.x = true %}{% endif %}
+        {% else %}
+          {% if n >= s.start or n < s.end %}{% set ns.x = true %}{% endif %}
+        {% endif %}
+      {% endif %}
+    {% endfor %}
+    {{ ns.x }}
+  # Was a schedule window active at the moment the target last changed state?
+  # (Used to tell a scheduled-on apart from a manual-on.)
+  lc_in_schedule: >-
+    {% set days = ['mon','tue','wed','thu','fri','sat','sun'] %}
+    {% set lc = states[target].last_changed if states[target] is not none else none %}
+    {% if lc is none %}
+      {{ false }}
+    {% else %}
+      {% set l = as_local(lc) %}
+      {% set wd = days[l.weekday()] %}
+      {% set n = l.strftime('%H:%M:%S') %}
+      {% set ns = namespace(x=false) %}
+      {% for s in schedules %}
+        {% if s.start != s.end and wd in (s.days or []) %}
+          {% if s.start < s.end %}
+            {% if s.start <= n and n < s.end %}{% set ns.x = true %}{% endif %}
+          {% else %}
+            {% if n >= s.start or n < s.end %}{% set ns.x = true %}{% endif %}
+          {% endif %}
+        {% endif %}
+      {% endfor %}
+      {{ ns.x }}
+    {% endif %}
+  on_secs: >-
+    {{ (as_timestamp(now()) - as_timestamp(states[target].last_changed)) | int(0)
+       if states[target] is not none else 0 }}
+  always_on_on: "{{ is_state(always_on_switch, 'on') }}"
+  # Keep a manual-on running? On, started outside every window, and either the
+  # timeout is disabled (0) or not yet elapsed.
+  manual_pending: >-
+    {{ is_state(target, 'on') and not lc_in_schedule
+       and (manual_secs | int == 0 or on_secs | int < manual_secs | int) }}
+
+trigger:
+  - platform: time_pattern
+    minutes: "/1"
+    id: periodic
+  - platform: state
+    entity_id: !input target
+    id: target
+  - platform: state
+    entity_id: !input always_on_switch
+    to: "on"
+    id: aon_on
+  - platform: state
+    entity_id: !input always_on_switch
+    to: "off"
+    id: aon_off
+  - platform: homeassistant
+    event: start
+    id: start
+
+condition: []
+
+action:
+  - choose:
+      # 1) ALWAYS OFF (hard lockout) — wins over everything.
+      - conditions: !input always_off_condition
+        sequence:
+          - if:
+              - "{{ not is_state(target, 'off') }}"
+            then:
+              - service: homeassistant.turn_off
+                target:
+                  entity_id: "{{ target }}"
+      # 2) ALWAYS ON virtual switch.
+      - conditions:
+          - "{{ always_on_on }}"
+        sequence:
+          - if:
+              - "{{ not is_state(target, 'on') }}"
+            then:
+              - service: homeassistant.turn_on
+                target:
+                  entity_id: "{{ target }}"
+      # 3) Inside a scheduled window.
+      - conditions:
+          - "{{ in_schedule }}"
+        sequence:
+          - if:
+              - "{{ not is_state(target, 'on') }}"
+            then:
+              - service: homeassistant.turn_on
+                target:
+                  entity_id: "{{ target }}"
+    default:
+      # No override, no window.
+      - choose:
+          # Override just released (always-on -> off): schedule-only, so (not in
+          # a window here) force OFF instead of honouring the manual timeout.
+          - conditions:
+              - "{{ trigger.id == 'aon_off' }}"
+            sequence:
+              - if:
+                  - "{{ not is_state(target, 'off') }}"
+                then:
+                  - service: homeassistant.turn_off
+                    target:
+                      entity_id: "{{ target }}"
+          # A manual-on is still within its timeout -> leave it running.
+          - conditions:
+              - "{{ manual_pending }}"
+            sequence: []
+        # Otherwise (manual timeout elapsed, or a scheduled window just ended,
+        # or nothing is on) -> off.
+        default:
+          - if:
+              - "{{ not is_state(target, 'off') }}"
+            then:
+              - service: homeassistant.turn_off
+                target:
+                  entity_id: "{{ target }}"
