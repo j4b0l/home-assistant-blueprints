@@ -36,7 +36,24 @@ blueprint:
     tick), so they take effect within a few minutes of the underlying state
     changing.
 
-    Version: 2026-07-24
+    Per-cover manual override (pin):
+      Any single cover can be pinned to a fixed position with its own
+      input_number helper. For cover.<name> the helper is
+      input_number.<name><suffix> (suffix configurable, default "_override").
+      Only covers you want to pin need a helper.
+        - helper at 1..99  -> that cover is HELD at that position, overriding
+                              the sun/season logic AND "always open" / "always
+                              closed" for that cover (but NOT "pause", which
+                              still stops everything).
+        - helper at 0 or 100, or missing / non-numeric -> no pin; the cover
+                              follows the normal automation.
+      A pin wins per-cover inside every non-pause branch, so the rest of the
+      covers still obey open/closed/normal while the pinned one stays put. The
+      pin is enforced on every run, so a pinned cover snaps back if it is moved
+      by hand or by the automation; changes apply within ~5 min (the tick) or on
+      the next sun movement.
+
+    Version: 2026-08-03
   domain: automation
 
   input:
@@ -563,6 +580,27 @@ blueprint:
           selector:
             condition: {}
 
+    manual_override_section:
+      name: Per-cover manual override
+      icon: mdi:cursor-move
+      description: >
+        Optionally pin individual covers to a fixed position with per-cover
+        input_number helpers. For cover.<name> the helper is
+        input_number.<name><suffix>. A value of 1..99 pins that cover there;
+        0 or 100 (or a missing helper) means no pin. Only covers you want to
+        pin need a helper. Tip: name the helper "<Cover name> Override" and HA
+        slugifies it to match (with the default suffix).
+      input:
+        override_suffix:
+          name: Override helper suffix
+          description: >
+            Appended to each cover's object id (after "input_number.") to find
+            its pin helper. Default "_override" -> cover.roleta_salon uses
+            input_number.roleta_salon_override.
+          default: "_override"
+          selector:
+            text: {}
+
 variables:
   azimuth_entity: !input azimuth_entity
   elevation_entity: !input elevation_entity
@@ -611,6 +649,41 @@ variables:
   pos_winter_early: !input pos_winter_early
   pos_winter_direct: !input pos_winter_direct
   pos_winter_late: !input pos_winter_late
+
+  override_suffix: !input override_suffix
+  # Per-cover pins: for each cover, read input_number.<object_id><suffix>.
+  # A value of 1..99 pins that cover; 0/100/missing/non-numeric = no pin.
+  override_pairs: >
+    {% set ns = namespace(items=[]) %}
+    {% for cv in all_covers %}
+      {% set h = 'input_number.' ~ (cv.split('.')[1]) ~ override_suffix %}
+      {% set raw = states(h) %}
+      {% if raw not in [none, 'unknown', 'unavailable'] and (raw | is_number) %}
+        {% set v = raw | float(0) %}
+        {% if v >= 1 and v <= 99 %}
+          {% set ns.items = ns.items + [{'entity_id': cv, 'position': v | int}] %}
+        {% endif %}
+      {% endif %}
+    {% endfor %}
+    {{ ns.items }}
+  override_ids: "{{ override_pairs | map(attribute='entity_id') | list }}"
+  # Open/closed command lists with per-cover pins substituted in.
+  open_commands: >
+    {% set ns = namespace(items=override_pairs) %}
+    {% for cv in all_covers %}
+      {% if cv not in override_ids %}
+        {% set ns.items = ns.items + [{'entity_id': cv, 'position': 100}] %}
+      {% endif %}
+    {% endfor %}
+    {{ ns.items }}
+  closed_commands: >
+    {% set ns = namespace(items=override_pairs) %}
+    {% for cv in all_covers %}
+      {% if cv not in override_ids %}
+        {% set ns.items = ns.items + [{'entity_id': cv, 'position': 0}] %}
+      {% endif %}
+    {% endfor %}
+    {{ ns.items }}
 
   commands: >
     {% set ns = namespace(items=[]) %}
@@ -691,21 +764,29 @@ variables:
         {% endif %}
         {% set base = pos[season ~ '_' ~ zone] | float(0) %}
         {% for cv in g.covers %}
-          {% set tg.pairs = tg.pairs + [{'cv': cv, 'base': base}] %}
+          {% if cv not in override_ids %}
+            {% set tg.pairs = tg.pairs + [{'cv': cv, 'base': base}] %}
+          {% endif %}
         {% endfor %}
       {% endfor %}
     {% elif phase == 'morning' %}
       {% for cv in all_covers %}
-        {% set tg.pairs = tg.pairs + [{'cv': cv, 'base': morning_position | float(0)}] %}
+        {% if cv not in override_ids %}
+          {% set tg.pairs = tg.pairs + [{'cv': cv, 'base': morning_position | float(0)}] %}
+        {% endif %}
       {% endfor %}
     {% elif phase == 'evening' %}
       {% for cv in all_covers %}
-        {% set tg.pairs = tg.pairs + [{'cv': cv, 'base': evening_position | float(0)}] %}
+        {% if cv not in override_ids %}
+          {% set tg.pairs = tg.pairs + [{'cv': cv, 'base': evening_position | float(0)}] %}
+        {% endif %}
       {% endfor %}
     {% elif phase == 'off' and night_close_enabled %}
       {# Night close ignores cloud coverage entirely - always command the night position. #}
       {% for cv in all_covers %}
-        {% set ns.items = ns.items + [{'entity_id': cv, 'position': night_close_position | int}] %}
+        {% if cv not in override_ids %}
+          {% set ns.items = ns.items + [{'entity_id': cv, 'position': night_close_position | int}] %}
+        {% endif %}
       {% endfor %}
     {% endif %}
     {# Emit sun / morning / evening targets. When cloud coverage IS available:
@@ -734,6 +815,9 @@ variables:
         {% endif %}
       {% endif %}
     {% endfor %}
+    {# Per-cover pins are forced in every phase (even 'skip'/'off'), overriding
+       the normal logic for those covers. #}
+    {% set ns.items = ns.items + override_pairs %}
     {{ ns.items }}
 
 trigger:
@@ -759,46 +843,48 @@ action:
             conditions: !input pause_condition
         sequence:
           - stop: "Paused by 'pause if' condition"
-      # ALWAYS OPEN: force every cover to 100%.
+      # ALWAYS OPEN: force every cover to 100% (pinned covers keep their pin).
       - conditions:
           - "{{ open_cfg | count > 0 }}"
           - condition: and
             conditions: !input always_open_condition
         sequence:
           - repeat:
-              for_each: "{{ all_covers }}"
+              for_each: "{{ open_commands }}"
               sequence:
                 - variables:
-                    current: "{{ state_attr(repeat.item, 'current_position') }}"
+                    target_pos: "{{ repeat.item.position | int }}"
+                    current: "{{ state_attr(repeat.item.entity_id, 'current_position') }}"
                 - if:
                     - condition: template
-                      value_template: "{{ current is none or (current | int(-1)) != 100 }}"
+                      value_template: "{{ current is none or (current | int(-1)) != target_pos }}"
                   then:
                     - service: cover.set_cover_position
                       target:
-                        entity_id: "{{ repeat.item }}"
+                        entity_id: "{{ repeat.item.entity_id }}"
                       data:
-                        position: 100
-      # ALWAYS CLOSED: force every cover to 0%.
+                        position: "{{ target_pos }}"
+      # ALWAYS CLOSED: force every cover to 0% (pinned covers keep their pin).
       - conditions:
           - "{{ closed_cfg | count > 0 }}"
           - condition: and
             conditions: !input always_closed_condition
         sequence:
           - repeat:
-              for_each: "{{ all_covers }}"
+              for_each: "{{ closed_commands }}"
               sequence:
                 - variables:
-                    current: "{{ state_attr(repeat.item, 'current_position') }}"
+                    target_pos: "{{ repeat.item.position | int }}"
+                    current: "{{ state_attr(repeat.item.entity_id, 'current_position') }}"
                 - if:
                     - condition: template
-                      value_template: "{{ current is none or (current | int(-1)) != 0 }}"
+                      value_template: "{{ current is none or (current | int(-1)) != target_pos }}"
                   then:
                     - service: cover.set_cover_position
                       target:
-                        entity_id: "{{ repeat.item }}"
+                        entity_id: "{{ repeat.item.entity_id }}"
                       data:
-                        position: 0
+                        position: "{{ target_pos }}"
     default:
       # NORMAL: per-side/season positions with cloud offset.
       - repeat:

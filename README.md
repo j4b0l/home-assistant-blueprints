@@ -273,6 +273,22 @@ logic, in this precedence:
 
 (To change the precedence, reorder the options in the `choose:` block.)
 
+**3b. Per-cover manual override (pin).** Any single cover can be pinned to a
+fixed position via its own `input_number` helper, named by convention: for
+`cover.<name>` the helper is `input_number.<name><suffix>` (suffix configurable,
+default `_override`). Only covers you want to pin need a helper.
+
+- helper at **1..99** → that cover is **held** at that position, overriding the
+  sun/season logic **and** "always open" / "always closed" for that cover.
+- helper at **0 or 100** (or missing / non-numeric) → no pin; the cover follows
+  the normal automation.
+
+The pin wins per-cover inside every non-pause branch (so the other covers still
+obey open/closed/normal), but **"pause" still stops everything**. Pins are
+enforced on every run, so a pinned cover snaps back if moved by hand; changes
+apply within ~5 min or on the next sun movement. Tip: name the helper
+"`<Cover name> Override`" and HA slugifies it to match the default suffix.
+
 **4. Adjustable zone angles (Advanced section).** The base blueprint hardcodes
 where one zone ends and the next begins. Here the four boundaries are sliders.
 
