@@ -257,8 +257,10 @@ selects which season's set is used; empty or unrecognised falls back to
 | cloudy … heavily cloudy | Offset 3 (default `30`) |
 | heavily cloudy `… 100` | Offset 4 (default `45`) |
 
-`final = clamp(base + offset, 0, 100)`. The offset applies to every phase
-**except the night close**. No cloud entity (or a non-numeric one) → offset `0`.
+`final = clamp(base + offset, 0, 100)`. The offset applies to the **sun phase
+only** — the morning (before sunrise), evening (after sunset) and night positions
+are used as-is, unaffected by cloud coverage. No cloud entity (or a non-numeric
+one) → offset `0`.
 
 **3. Three condition overrides** (replacing the old disable entity / disable
 condition). Each is a full condition builder, evaluated **before** the normal
@@ -323,7 +325,8 @@ late 45°). The thresholds are evaluated in order, so keep them ascending —
 ### Notes
 
 - Morning/evening/night positions remain **global single values** (not
-  per-season); the cloud offset applies to morning/evening but not night.
+  per-season); the cloud offset applies to the sun phase only — morning, evening
+  and night are never offset.
 - Everything else — elevation-driven day/night, time-window vs sunrise/sunset,
   the 5-minute re-evaluation, "only move if the position changed" — behaves like
   the base blueprint.

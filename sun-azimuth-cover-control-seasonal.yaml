@@ -11,7 +11,9 @@ blueprint:
 
     Cloud coverage adds an opening offset. Three thresholds split coverage into
     four bands (0->slightly, slightly->cloudy, cloudy->heavily, heavily->100),
-    each with its own offset added to the base position (night close excluded).
+    each with its own offset added to the base position. The offset applies only
+    to the sun phase - the morning (before sunrise), evening (after sunset) and
+    night positions are used as-is, unaffected by cloud coverage.
 
     Flaky / unavailable cloud sensor: if the cloud entity is missing or non-numeric
     the covers are NOT moved on that account - a cover already sitting at a valid
@@ -157,7 +159,8 @@ blueprint:
       icon: mdi:weather-partly-cloudy
       description: >
         Optional. Three thresholds split cloud coverage into four bands; each
-        band adds an opening offset to the base position (night close excluded).
+        band adds an opening offset to the base position. Applies to the sun phase
+        only - the morning, evening and night positions are not offset.
         Leave the entity empty to disable (offset 0).
       input:
         cloud_entity:
@@ -789,22 +792,27 @@ variables:
         {% endif %}
       {% endfor %}
     {% endif %}
+    {# Cloud coverage only affects the sun phase. The morning (before sunrise) and
+       evening (after sunset) positions are used as-is, with no cloud offset. #}
+    {% set apply_cloud = (phase == 'sun') %}
+    {% set cand_offs = ([0.0] + offs) if apply_cloud else [0.0] %}
     {# Emit sun / morning / evening targets. When cloud coverage IS available:
-       position = base + cloud offset. When it is UNAVAILABLE: if the cover already
-       sits at a valid position for its current zone (base, or base + any configured
-       cloud offset, within 3%) it is HELD (no command emitted); otherwise the zone or
-       phase changed, so it moves to the clear-sky base. This holds position through a
-       flaky/dropped cloud sensor and only re-positions on real zone/phase/override
-       changes (night and overrides are handled separately, above / in the action). #}
+       position = base + cloud offset (sun phase only; morning/evening use base).
+       When it is UNAVAILABLE: if the cover already sits at a valid position for its
+       current zone (base, or - sun phase only - base + any configured cloud offset,
+       within 3%) it is HELD (no command emitted); otherwise the zone or phase changed,
+       so it moves to the clear-sky base. This holds position through a flaky/dropped
+       cloud sensor and only re-positions on real zone/phase/override changes (night
+       and overrides are handled separately, above / in the action). #}
     {% for t in tg.pairs %}
       {% if cloud_avail %}
-        {% set final = [[t.base + offset, 100] | min, 0] | max %}
+        {% set final = [[t.base + (offset if apply_cloud else 0), 100] | min, 0] | max %}
         {% set ns.items = ns.items + [{'entity_id': t.cv, 'position': final | int}] %}
       {% else %}
         {% set cur = state_attr(t.cv, 'current_position') %}
         {% set clearpos = [[t.base, 100] | min, 0] | max %}
         {% set m = namespace(hit=false) %}
-        {% for o in [0.0] + offs %}
+        {% for o in cand_offs %}
           {% set v = [[t.base + o, 100] | min, 0] | max %}
           {% if cur is not none and ((cur | int(9999)) - (v | int)) | abs <= 3 %}
             {% set m.hit = true %}
