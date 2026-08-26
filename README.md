@@ -16,6 +16,7 @@ A small collection of Home Assistant automation blueprints.
 | Bulbulator - single-room light cycler | [`bulbulator-single-room-cycler.yaml`](bulbulator-single-room-cycler.yaml) | Cycle a two-switch fixture (1 bulb + 2 bulbs) through 0→1→2→3 bulbs with a single tappable button. No helpers — reads the switches' own state. |
 | Bulbulator - input number bulb control | [`bulbulator-input-number-bulb-control.yaml`](bulbulator-input-number-bulb-control.yaml) | Drive the same 1+2 fixture from a 0–3 input_number "brightness" slider (value = bulb count) instead of tap-cycling. |
 | Bulbulator - multi-room route light cycler | [`bulbulator-multi-room-route-cycler.yaml`](bulbulator-multi-room-route-cycler.yaml) | Move a single lit light along an ordered route of any length; furthest-on = current point, each tap advances one and turns the rest off, then all-off. No helpers. |
+| NFC tag double-tap confirm | [`nfc-double-tap-confirm.yaml`](nfc-double-tap-confirm.yaml) | Run configured actions only after the same NFC tag is tapped twice within a window (default 30 s); guards accidental single taps. Optional first-tap/timeout feedback. |
 
 > Dashboard cards for the three Bulbulator blueprints (dynamic `custom:button-card`
 > tap buttons + sliders): [`docs/bulbulator-cards.md`](docs/bulbulator-cards.md).

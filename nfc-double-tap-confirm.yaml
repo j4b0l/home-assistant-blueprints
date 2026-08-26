@@ -1,0 +1,114 @@
+blueprint:
+  name: NFC tag double-tap confirm
+  description: |
+    Run a set of actions only after an NFC tag is tapped TWICE — a second tap of
+    the SAME tag within a confirmation window (default 30 s). The first tap arms
+    the automation; the second tap confirms and runs the actions. If the second
+    tap does not arrive in time, nothing happens (or an optional "timed out"
+    action runs).
+
+    Use it to guard actions you don't want fired by a single accidental tap —
+    open the gate, disarm the alarm, unlock a door, run a hard-to-undo scene, etc.
+
+    Pick the tag from the dropdown (Home Assistant exposes each configured tag as
+    a tag.* entity). The blueprint reads that tag's id and matches it on scan, so
+    only that tag arms and confirms this automation.
+
+    Tip: set "On first tap" to a notification or TTS such as "Tap again to
+    confirm" so you know the confirmation window is open.
+
+    Version: 2026-08-24
+  domain: automation
+
+  input:
+    tag_section:
+      name: Tag
+      icon: mdi:nfc-variant
+      input:
+        tag:
+          name: NFC tag
+          description: >
+            The tag that arms and confirms this automation. Every tag from
+            Settings → Tags appears here as a tag.* entity.
+          selector:
+            entity:
+              filter:
+                - domain: tag
+        confirm_seconds:
+          name: Confirmation window (seconds)
+          description: >
+            After the first tap, a second tap of the SAME tag must happen within
+            this many seconds to run the actions.
+          default: 30
+          selector:
+            number:
+              min: 5
+              max: 300
+              step: 1
+              unit_of_measurement: s
+              mode: slider
+
+    action_section:
+      name: Actions
+      icon: mdi:play
+      input:
+        confirm_actions:
+          name: Actions to run (on confirmed double tap)
+          description: These run only after the tag is tapped a second time in time.
+          default: []
+          selector:
+            action: {}
+        first_tap_actions:
+          name: On first tap (optional)
+          description: >
+            Optional feedback when the first tap arms the confirmation — e.g. a
+            notification or TTS "tap again to confirm". Runs on every first tap.
+          default: []
+          selector:
+            action: {}
+        timeout_actions:
+          name: On timeout (optional)
+          description: >
+            Optional actions when the confirmation window expires without a
+            second tap of the same tag.
+          default: []
+          selector:
+            action: {}
+
+# Single instance: the first tap starts the run and waits; the confirming second
+# tap is caught by wait_for_trigger inside that run (the re-trigger is ignored).
+mode: single
+max_exceeded: silent
+
+variables:
+  tag_entity: !input tag
+  confirm_seconds: !input confirm_seconds
+  # The tag's id (UUID) that the tag_scanned event carries.
+  target_tag_id: "{{ state_attr(tag_entity, 'tag_id') }}"
+
+# Fire on any tag scan; the condition keeps only the chosen tag. (A trigger's
+# tag_id can't be templated, so we match the id ourselves.)
+trigger:
+  - platform: event
+    event_type: tag_scanned
+
+condition:
+  - "{{ trigger.event.data.tag_id == target_tag_id }}"
+
+action:
+  # First tap armed the automation — optional feedback.
+  - if:
+      - "{{ true }}"
+    then: !input first_tap_actions
+  # Wait for the confirming second tap of the SAME tag.
+  - wait_for_trigger:
+      - platform: event
+        event_type: tag_scanned
+    timeout: "{{ confirm_seconds }}"
+    continue_on_timeout: true
+  # Confirmed only if a second scan arrived in time AND it was the same tag;
+  # any other outcome (timeout, or a different tag) is treated as not confirmed.
+  - if:
+      - "{{ wait.trigger is not none and wait.trigger.event.data.tag_id == target_tag_id }}"
+    then: !input confirm_actions
+    else: !input timeout_actions
