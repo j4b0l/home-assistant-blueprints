@@ -42,13 +42,15 @@ blueprint:
       Any single cover can be pinned to a fixed position with its own
       input_number helper. For cover.<name> the helper is
       input_number.<name><suffix> (suffix configurable, default "_override").
-      Only covers you want to pin need a helper.
-        - helper at 1..99  -> that cover is HELD at that position, overriding
-                              the sun/season logic AND "always open" / "always
+      Only covers you want to pin need a helper. Give the helper a range of any
+      negative minimum (e.g. -1) up to 100.
+        - helper at 0..100 -> that cover is HELD at that position (0 = fully
+                              closed, 100 = fully open), overriding the
+                              sun/season logic AND "always open" / "always
                               closed" for that cover (but NOT "pause", which
                               still stops everything).
-        - helper at 0 or 100, or missing / non-numeric -> no pin; the cover
-                              follows the normal automation.
+        - helper negative, or missing / non-numeric -> no pin; the cover follows
+                              the normal automation.
       A pin wins per-cover inside every non-pause branch, so the rest of the
       covers still obey open/closed/normal while the pinned one stays put. The
       pin is enforced on every run, so a pinned cover snaps back if it is moved
@@ -588,11 +590,13 @@ blueprint:
       icon: mdi:cursor-move
       description: >
         Optionally pin individual covers to a fixed position with per-cover
-        input_number helpers. For cover.<name> the helper is
-        input_number.<name><suffix>. A value of 1..99 pins that cover there;
-        0 or 100 (or a missing helper) means no pin. Only covers you want to
-        pin need a helper. Tip: name the helper "<Cover name> Override" and HA
-        slugifies it to match (with the default suffix).
+        input_number helpers (give each a range from any negative minimum, e.g.
+        -1, up to 100). For cover.<name> the helper is
+        input_number.<name><suffix>. A value of 0..100 pins that cover to that
+        position (0 = closed, 100 = open); a negative value (or a missing helper)
+        means no pin. Only covers you want to pin need a helper. Tip: name the
+        helper "<Cover name> Override" and HA slugifies it to match (with the
+        default suffix).
       input:
         override_suffix:
           name: Override helper suffix
@@ -655,16 +659,17 @@ variables:
 
   override_suffix: !input override_suffix
   # Per-cover pins: for each cover, read input_number.<object_id><suffix>.
-  # A value of 1..99 pins that cover; 0/100/missing/non-numeric = no pin.
+  # A value of 0..100 pins that cover to that position; a negative value (or
+  # missing / non-numeric) = no pin.
   override_pairs: >
     {% set ns = namespace(items=[]) %}
     {% for cv in all_covers %}
       {% set h = 'input_number.' ~ (cv.split('.')[1]) ~ override_suffix %}
       {% set raw = states(h) %}
       {% if raw not in [none, 'unknown', 'unavailable'] and (raw | is_number) %}
-        {% set v = raw | float(0) %}
-        {% if v >= 1 and v <= 99 %}
-          {% set ns.items = ns.items + [{'entity_id': cv, 'position': v | int}] %}
+        {% set v = raw | float(-1) %}
+        {% if v >= 0 and v <= 100 %}
+          {% set ns.items = ns.items + [{'entity_id': cv, 'position': v | round | int}] %}
         {% endif %}
       {% endif %}
     {% endfor %}
