@@ -17,7 +17,7 @@ A small collection of Home Assistant automation blueprints.
 | Bulbulator - input number bulb control | [`bulbulator-input-number-bulb-control.yaml`](bulbulator-input-number-bulb-control.yaml) | Drive the same 1+2 fixture from a 0–3 input_number "brightness" slider (value = bulb count) instead of tap-cycling. |
 | Bulbulator - multi-room route light cycler | [`bulbulator-multi-room-route-cycler.yaml`](bulbulator-multi-room-route-cycler.yaml) | Move a single lit light along an ordered route of any length; furthest-on = current point, each tap advances one and turns the rest off, then all-off. No helpers. |
 | NFC tag double-tap confirm | [`nfc-double-tap-confirm.yaml`](nfc-double-tap-confirm.yaml) | Run configured actions only after the same NFC tag is tapped twice within a window (default 30 s); guards accidental single taps. Optional first-tap/timeout feedback. |
-| Tiered device-availability notifier | [`device-availability-tiered-notify.yaml`](device-availability-tiered-notify.yaml) | Watch Critical/Important/Regular device tiers; report the count unavailable-past-threshold (30 m / 2 h / 4 h) on a per-tier cron schedule, to phones (push) and Assist satellites (voice). |
+| Device availability notifier | [`device-availability-notify.yaml`](device-availability-notify.yaml) | Watch up to ~20 devices; on a cron schedule (default daily 09:00) report how many are unavailable past a threshold, to phones (push) and Assist satellites (voice), with optional custom text appended. |
 
 > Dashboard cards for the three Bulbulator blueprints (dynamic `custom:button-card`
 > tap buttons + sliders): [`docs/bulbulator-cards.md`](docs/bulbulator-cards.md).

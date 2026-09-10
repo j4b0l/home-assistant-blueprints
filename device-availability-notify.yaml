@@ -1,0 +1,184 @@
+blueprint:
+  name: Device availability notifier
+  description: |
+    Watch a group of devices and report how many are unavailable, on a schedule,
+    to your phones and/or voice satellites.
+
+    You configure up to ~20 devices, how long a device must be continuously
+    unavailable before it counts (default 30 min), and a cron-like schedule for
+    when to send the report.
+
+    A device is considered unavailable/unreachable using, in order:
+      1. a device-provided connectivity binary_sensor (device_class "connectivity")
+         being "off" — the best signal when the device offers it;
+      2. any of its entities reporting the literal state "unreachable";
+      3. otherwise, ALL of its entities being "unavailable"/"unknown".
+    The "continuously for X" timer uses that signal's last state change, so a
+    device that flaps back for even a moment restarts its timer.
+
+    Each message states the NUMBER of unavailable devices, in English (push
+    "2 devices unavailable", spoken "Attention. 2 devices unavailable."), with
+    your optional custom text appended. Nothing is sent when the schedule fires
+    and no device is currently past its threshold.
+
+    Targets: any number of companion-app devices for push notifications and any
+    number of Assist satellites (e.g. Home Assistant Voice) for spoken
+    announcements.
+
+    Version: 2026-09-10
+  domain: automation
+
+  input:
+    devices_section:
+      name: Devices
+      icon: mdi:devices
+      input:
+        devices:
+          name: Devices to watch (up to 20)
+          default: []
+          selector:
+            device:
+              multiple: true
+        threshold:
+          name: Unavailable continuously for at least
+          description: A device is only counted after it has been down this long without interruption.
+          default:
+            minutes: 30
+          selector:
+            duration: {}
+
+    schedule_section:
+      name: Schedule & message
+      icon: mdi:calendar-clock
+      input:
+        cron:
+          name: Notify schedule (cron)
+          description: >
+            5-field cron "minute hour day-of-month month day-of-week" for when to
+            send the report. Examples:
+              "0 9 * * *"    – daily at 09:00 (default)
+              "0 * * * *"    – hourly, at minute :00
+              "*/30 * * * *" – every 30 minutes
+              "0 8,20 * * *" – daily at 08:00 and 20:00
+              "0 9 * * 1-5"  – weekdays at 09:00
+              "0 9 * * 1"    – weekly, Mondays at 09:00
+            Supports "*", a number, lists "a,b", ranges "a-b", and steps "*/n".
+            Sunday = 0.
+          default: "0 9 * * *"
+          selector:
+            text: {}
+        custom_text:
+          name: Custom text (optional)
+          description: Appended to the end of every notification and announcement.
+          default: ""
+          selector:
+            text: {}
+
+    targets_section:
+      name: Targets
+      icon: mdi:bullhorn
+      input:
+        notify_devices:
+          name: Push-notification devices
+          description: Companion-app (mobile) devices that receive the push.
+          default: []
+          selector:
+            device:
+              multiple: true
+              filter:
+                - integration: mobile_app
+        announce_targets:
+          name: Voice announcement targets
+          description: Assist satellites (e.g. Home Assistant Voice) that speak the report.
+          default: []
+          selector:
+            entity:
+              multiple: true
+              filter:
+                - domain: assist_satellite
+
+mode: single
+max_exceeded: silent
+
+variables:
+  devices: !input devices
+  thr: !input threshold
+  cron: !input cron
+  custom_text: !input custom_text
+  thr_secs: "{{ (thr.days|default(0))*86400 + (thr.hours|default(0))*3600 + (thr.minutes|default(0))*60 + (thr.seconds|default(0)) }}"
+  # Count of devices past their threshold, but only when the schedule is due now
+  # (so the device scan is skipped on non-matching minutes).
+  report: >
+    {%- macro cfield(field, val, lo, hi) -%}
+      {%- set ns = namespace(m=false) -%}
+      {%- for raw in field.split(',') -%}
+        {%- set step = (raw.split('/')[1] | int) if '/' in raw else 1 -%}
+        {%- set p = raw.split('/')[0] -%}
+        {%- if p == '*' -%}{%- set a = lo -%}{%- set b = hi -%}
+        {%- elif '-' in p -%}{%- set a = p.split('-')[0] | int -%}{%- set b = p.split('-')[1] | int -%}
+        {%- else -%}{%- set a = p | int -%}{%- set b = p | int -%}{%- endif -%}
+        {%- if step > 0 and val >= a and val <= b and ((val - a) % step) == 0 -%}{%- set ns.m = true -%}{%- endif -%}
+      {%- endfor -%}
+      {{- 1 if ns.m else 0 -}}
+    {%- endmacro -%}
+    {%- macro cron_match(c) -%}
+      {%- set f = c.split() -%}
+      {%- if (f | length) != 5 -%}{{- 0 -}}
+      {%- else -%}
+        {%- set dow = now().isoweekday() % 7 -%}
+        {{- (cfield(f[0], now().minute, 0, 59)|int) * (cfield(f[1], now().hour, 0, 23)|int) * (cfield(f[2], now().day, 1, 31)|int) * (cfield(f[3], now().month, 1, 12)|int) * (cfield(f[4], dow, 0, 6)|int) -}}
+      {%- endif -%}
+    {%- endmacro -%}
+    {%- macro down1(dev, thr) -%}
+      {%- set ents = device_entities(dev) -%}
+      {%- set ns = namespace(conn=none, unreach=none, allun=true, has=false, maxlc=0, down=false, since=0) -%}
+      {%- for e in ents -%}
+        {%- set s = states[e] -%}
+        {%- if s is not none -%}
+          {%- set ns.has = true -%}
+          {%- if e.startswith('binary_sensor.') and state_attr(e, 'device_class') == 'connectivity' and ns.conn is none -%}{%- set ns.conn = s -%}{%- endif -%}
+          {%- if (s.state | lower) == 'unreachable' and ns.unreach is none -%}{%- set ns.unreach = s -%}{%- endif -%}
+          {%- if s.state not in ['unavailable', 'unknown', 'none'] -%}{%- set ns.allun = false -%}{%- endif -%}
+          {%- set lc = as_timestamp(s.last_changed) -%}
+          {%- if lc > ns.maxlc -%}{%- set ns.maxlc = lc -%}{%- endif -%}
+        {%- endif -%}
+      {%- endfor -%}
+      {%- if ns.conn is not none -%}{%- set ns.down = (ns.conn.state == 'off') -%}{%- set ns.since = as_timestamp(ns.conn.last_changed) -%}
+      {%- elif ns.unreach is not none -%}{%- set ns.down = true -%}{%- set ns.since = as_timestamp(ns.unreach.last_changed) -%}
+      {%- elif ns.has and ns.allun -%}{%- set ns.down = true -%}{%- set ns.since = ns.maxlc -%}{%- endif -%}
+      {{- 1 if (ns.down and (as_timestamp(now()) - ns.since) >= (thr | int)) else 0 -}}
+    {%- endmacro -%}
+    {%- if (cron_match(cron) | int) == 1 -%}
+      {%- set g = namespace(c=0) -%}
+      {%- for d in devices -%}{%- set g.c = g.c + (down1(d, thr_secs) | int) -%}{%- endfor -%}
+      {{- g.c -}}
+    {%- else -%}{{- 0 -}}{%- endif -%}
+
+trigger:
+  - platform: time_pattern
+    minutes: "/1"
+
+condition:
+  - "{{ report | int > 0 }}"
+
+action:
+  - variables:
+      push_msg: >-
+        {{ report | int }} device{{ 's' if (report | int) != 1 else '' }} unavailable{{ '\n' ~ custom_text if custom_text | trim else '' }}
+      speak_msg: >-
+        Attention. {{ report | int }} device{{ 's' if (report | int) != 1 else '' }} unavailable.{{ ' ' ~ custom_text if custom_text | trim else '' }}
+  - repeat:
+      for_each: !input notify_devices
+      sequence:
+        - service: "notify.mobile_app_{{ device_attr(repeat.item, 'name') | slugify }}"
+          data:
+            title: "⚠️ Device availability"
+            message: "{{ push_msg }}"
+  - repeat:
+      for_each: !input announce_targets
+      sequence:
+        - service: assist_satellite.announce
+          target:
+            entity_id: "{{ repeat.item }}"
+          data:
+            message: "{{ speak_msg }}"
