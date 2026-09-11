@@ -25,6 +25,9 @@ blueprint:
     — which matches the Reolink integration's naming. Give each camera a short
     name for the messages. Cameras with no device set are ignored.
 
+    Push notifications and announcements each have their own daily time window
+    (default 07:00-22:00); outside it that channel is skipped.
+
     Only one run happens at a time (mode: single); overlapping bursts are
     absorbed into the current aggregation or dropped during the pause.
 
@@ -115,6 +118,37 @@ blueprint:
             entity:
               filter:
                 - domain: tts
+
+    windows_section:
+      name: Time windows
+      icon: mdi:clock-outline
+      description: >
+        Push notifications and announcements are each only sent inside their own
+        daily window (defaults 07:00-22:00). A window whose end is earlier than
+        its start runs overnight; start == end means all day. Detection,
+        aggregation and the pause still run outside the windows - only the
+        sending is skipped.
+      input:
+        notify_window_start:
+          name: Notifications from
+          default: "07:00:00"
+          selector:
+            time: {}
+        notify_window_end:
+          name: Notifications until
+          default: "22:00:00"
+          selector:
+            time: {}
+        announce_window_start:
+          name: Announcements from
+          default: "07:00:00"
+          selector:
+            time: {}
+        announce_window_end:
+          name: Announcements until
+          default: "22:00:00"
+          selector:
+            time: {}
 
     camera_1_section:
       name: Camera 1
@@ -568,6 +602,16 @@ variables:
   text_vehicle: !input text_vehicle
   text_animal: !input text_animal
   tts_engine: !input tts_engine
+  nw_start: !input notify_window_start
+  nw_end: !input notify_window_end
+  aw_start: !input announce_window_start
+  aw_end: !input announce_window_end
+  notify_in_window: >
+    {%- set s = nw_start -%}{%- set e = nw_end -%}{%- set n = now().strftime('%H:%M:%S') -%}
+    {{ true if s == e else ((s <= n and n < e) if s < e else (n >= s or n < e)) }}
+  announce_in_window: >
+    {%- set s = aw_start -%}{%- set e = aw_end -%}{%- set n = now().strftime('%H:%M:%S') -%}
+    {{ true if s == e else ((s <= n and n < e) if s < e else (n >= s or n < e)) }}
   cam1_device: !input cam1_device
   cam1_name: !input cam1_name
   cam1_motion: !input cam1_motion
@@ -690,34 +734,40 @@ action:
   - if:
       - "{{ hits | count > 0 }}"
     then:
-      - repeat:
-          for_each: !input notify_devices
-          sequence:
-            - service: "notify.mobile_app_{{ device_attr(repeat.item, 'name') | slugify }}"
-              data:
-                title: "📷 Motion"
-                message: "{{ message }}"
-      - repeat:
-          for_each: !input announce_targets
-          sequence:
-            - choose:
-                - conditions:
-                    - "{{ repeat.item.startswith('assist_satellite.') }}"
-                  sequence:
-                    - service: assist_satellite.announce
-                      target:
-                        entity_id: "{{ repeat.item }}"
-                      data:
-                        message: "{{ message }}"
-                - conditions:
-                    - "{{ repeat.item.startswith('media_player.') and tts_engine not in [none, ''] }}"
-                  sequence:
-                    - service: tts.speak
-                      target:
-                        entity_id: "{{ tts_engine }}"
-                      data:
-                        media_player_entity_id: "{{ repeat.item }}"
-                        message: "{{ message }}"
+      - if:
+          - "{{ notify_in_window }}"
+        then:
+          - repeat:
+              for_each: !input notify_devices
+              sequence:
+                - service: "notify.mobile_app_{{ device_attr(repeat.item, 'name') | slugify }}"
+                  data:
+                    title: "📷 Motion"
+                    message: "{{ message }}"
+      - if:
+          - "{{ announce_in_window }}"
+        then:
+          - repeat:
+              for_each: !input announce_targets
+              sequence:
+                - choose:
+                    - conditions:
+                        - "{{ repeat.item.startswith('assist_satellite.') }}"
+                      sequence:
+                        - service: assist_satellite.announce
+                          target:
+                            entity_id: "{{ repeat.item }}"
+                          data:
+                            message: "{{ message }}"
+                    - conditions:
+                        - "{{ repeat.item.startswith('media_player.') and tts_engine not in [none, ''] }}"
+                      sequence:
+                        - service: tts.speak
+                          target:
+                            entity_id: "{{ tts_engine }}"
+                          data:
+                            media_player_entity_id: "{{ repeat.item }}"
+                            message: "{{ message }}"
   # Quiet period: with mode single, detections arriving now are dropped.
   - delay:
       seconds: "{{ pause_seconds | int }}"
