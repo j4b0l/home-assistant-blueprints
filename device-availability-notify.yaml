@@ -1,12 +1,13 @@
 blueprint:
   name: Device availability notifier
   description: |
-    Watch a group of devices and report how many are unavailable, on a schedule,
-    to your phones and/or voice satellites.
+    Watch a group of devices and report how many are unavailable — as a push
+    notification at 1-4 times of day, and/or as a spoken announcement at its own
+    1-4 times of day.
 
     You configure up to ~20 devices, how long a device must be continuously
-    unavailable before it counts (default 30 min), and a cron-like schedule for
-    when to send the report.
+    unavailable before it counts (default 30 min), the daily times to send the
+    push report, and — separately — the daily times to announce it by voice.
 
     A device is considered unavailable/unreachable using, in order:
       1. a device-provided connectivity binary_sensor (device_class "connectivity")
@@ -18,14 +19,14 @@ blueprint:
 
     Each message states the NUMBER of unavailable devices, in English (push
     "2 devices unavailable", spoken "Attention. 2 devices unavailable."), with
-    your optional custom text appended. Nothing is sent when the schedule fires
-    and no device is currently past its threshold.
+    your optional custom text appended. Nothing is sent at a scheduled time when
+    no device is currently past its threshold.
 
-    Targets: any number of companion-app devices for push notifications and any
-    number of Assist satellites (e.g. Home Assistant Voice) for spoken
-    announcements.
+    Times: slot 1 of each schedule is pre-filled (09:00); slots 2-4 are optional
+    — leave them empty to use fewer times. Notify and announce schedules are
+    independent; a time present in both fires both.
 
-    Version: 2026-09-10
+    Version: 2026-09-11
   domain: automation
 
   input:
@@ -47,26 +48,60 @@ blueprint:
           selector:
             duration: {}
 
-    schedule_section:
-      name: Schedule & message
-      icon: mdi:calendar-clock
+    notify_schedule_section:
+      name: Push notification times (1-4 per day)
+      icon: mdi:cellphone-message
       input:
-        cron:
-          name: Notify schedule (cron)
-          description: >
-            5-field cron "minute hour day-of-month month day-of-week" for when to
-            send the report. Examples:
-              "0 9 * * *"    – daily at 09:00 (default)
-              "0 * * * *"    – hourly, at minute :00
-              "*/30 * * * *" – every 30 minutes
-              "0 8,20 * * *" – daily at 08:00 and 20:00
-              "0 9 * * 1-5"  – weekdays at 09:00
-              "0 9 * * 1"    – weekly, Mondays at 09:00
-            Supports "*", a number, lists "a,b", ranges "a-b", and steps "*/n".
-            Sunday = 0.
-          default: "0 9 * * *"
+        notify_time_1:
+          name: Notify time 1
+          default: "09:00:00"
           selector:
-            text: {}
+            time: {}
+        notify_time_2:
+          name: Notify time 2 (optional)
+          default:
+          selector:
+            time: {}
+        notify_time_3:
+          name: Notify time 3 (optional)
+          default:
+          selector:
+            time: {}
+        notify_time_4:
+          name: Notify time 4 (optional)
+          default:
+          selector:
+            time: {}
+
+    announce_schedule_section:
+      name: Voice announcement times (1-4 per day)
+      icon: mdi:bullhorn-outline
+      input:
+        announce_time_1:
+          name: Announce time 1
+          default: "09:00:00"
+          selector:
+            time: {}
+        announce_time_2:
+          name: Announce time 2 (optional)
+          default:
+          selector:
+            time: {}
+        announce_time_3:
+          name: Announce time 3 (optional)
+          default:
+          selector:
+            time: {}
+        announce_time_4:
+          name: Announce time 4 (optional)
+          default:
+          selector:
+            time: {}
+
+    message_section:
+      name: Message
+      icon: mdi:message-text
+      input:
         custom_text:
           name: Custom text (optional)
           description: Appended to the end of every notification and announcement.
@@ -103,32 +138,32 @@ max_exceeded: silent
 variables:
   devices: !input devices
   thr: !input threshold
-  cron: !input cron
   custom_text: !input custom_text
+  nt1: !input notify_time_1
+  nt2: !input notify_time_2
+  nt3: !input notify_time_3
+  nt4: !input notify_time_4
+  at1: !input announce_time_1
+  at2: !input announce_time_2
+  at3: !input announce_time_3
+  at4: !input announce_time_4
   thr_secs: "{{ (thr.days|default(0))*86400 + (thr.hours|default(0))*3600 + (thr.minutes|default(0))*60 + (thr.seconds|default(0)) }}"
-  # Count of devices past their threshold, but only when the schedule is due now
-  # (so the device scan is skipped on non-matching minutes).
+  # Is the current HH:MM one of the configured (non-empty) times?
+  notify_due: >
+    {%- set ns = namespace(l=[]) -%}
+    {%- for t in [nt1, nt2, nt3, nt4] -%}
+      {%- if t is string and (t | length) >= 5 -%}{%- set ns.l = ns.l + [t[0:5]] -%}{%- endif -%}
+    {%- endfor -%}
+    {{ now().strftime('%H:%M') in ns.l }}
+  announce_due: >
+    {%- set ns = namespace(l=[]) -%}
+    {%- for t in [at1, at2, at3, at4] -%}
+      {%- if t is string and (t | length) >= 5 -%}{%- set ns.l = ns.l + [t[0:5]] -%}{%- endif -%}
+    {%- endfor -%}
+    {{ now().strftime('%H:%M') in ns.l }}
+  # Count of devices past their threshold, computed only when something is due
+  # (so the device scan is skipped on other minutes).
   report: >
-    {%- macro cfield(field, val, lo, hi) -%}
-      {%- set ns = namespace(m=false) -%}
-      {%- for raw in field.split(',') -%}
-        {%- set step = (raw.split('/')[1] | int) if '/' in raw else 1 -%}
-        {%- set p = raw.split('/')[0] -%}
-        {%- if p == '*' -%}{%- set a = lo -%}{%- set b = hi -%}
-        {%- elif '-' in p -%}{%- set a = p.split('-')[0] | int -%}{%- set b = p.split('-')[1] | int -%}
-        {%- else -%}{%- set a = p | int -%}{%- set b = p | int -%}{%- endif -%}
-        {%- if step > 0 and val >= a and val <= b and ((val - a) % step) == 0 -%}{%- set ns.m = true -%}{%- endif -%}
-      {%- endfor -%}
-      {{- 1 if ns.m else 0 -}}
-    {%- endmacro -%}
-    {%- macro cron_match(c) -%}
-      {%- set f = c.split() -%}
-      {%- if (f | length) != 5 -%}{{- 0 -}}
-      {%- else -%}
-        {%- set dow = now().isoweekday() % 7 -%}
-        {{- (cfield(f[0], now().minute, 0, 59)|int) * (cfield(f[1], now().hour, 0, 23)|int) * (cfield(f[2], now().day, 1, 31)|int) * (cfield(f[3], now().month, 1, 12)|int) * (cfield(f[4], dow, 0, 6)|int) -}}
-      {%- endif -%}
-    {%- endmacro -%}
     {%- macro down1(dev, thr) -%}
       {%- set ents = device_entities(dev) -%}
       {%- set ns = namespace(conn=none, unreach=none, allun=true, has=false, maxlc=0, down=false, since=0) -%}
@@ -148,7 +183,7 @@ variables:
       {%- elif ns.has and ns.allun -%}{%- set ns.down = true -%}{%- set ns.since = ns.maxlc -%}{%- endif -%}
       {{- 1 if (ns.down and (as_timestamp(now()) - ns.since) >= (thr | int)) else 0 -}}
     {%- endmacro -%}
-    {%- if (cron_match(cron) | int) == 1 -%}
+    {%- if notify_due or announce_due -%}
       {%- set g = namespace(c=0) -%}
       {%- for d in devices -%}{%- set g.c = g.c + (down1(d, thr_secs) | int) -%}{%- endfor -%}
       {{- g.c -}}
@@ -159,7 +194,7 @@ trigger:
     minutes: "/1"
 
 condition:
-  - "{{ report | int > 0 }}"
+  - "{{ (notify_due or announce_due) and (report | int) > 0 }}"
 
 action:
   - variables:
@@ -167,18 +202,24 @@ action:
         {{ report | int }} device{{ 's' if (report | int) != 1 else '' }} unavailable{{ '\n' ~ custom_text if custom_text | trim else '' }}
       speak_msg: >-
         Attention. {{ report | int }} device{{ 's' if (report | int) != 1 else '' }} unavailable.{{ ' ' ~ custom_text if custom_text | trim else '' }}
-  - repeat:
-      for_each: !input notify_devices
-      sequence:
-        - service: "notify.mobile_app_{{ device_attr(repeat.item, 'name') | slugify }}"
-          data:
-            title: "⚠️ Device availability"
-            message: "{{ push_msg }}"
-  - repeat:
-      for_each: !input announce_targets
-      sequence:
-        - service: assist_satellite.announce
-          target:
-            entity_id: "{{ repeat.item }}"
-          data:
-            message: "{{ speak_msg }}"
+  - if:
+      - "{{ notify_due }}"
+    then:
+      - repeat:
+          for_each: !input notify_devices
+          sequence:
+            - service: "notify.mobile_app_{{ device_attr(repeat.item, 'name') | slugify }}"
+              data:
+                title: "⚠️ Device availability"
+                message: "{{ push_msg }}"
+  - if:
+      - "{{ announce_due }}"
+    then:
+      - repeat:
+          for_each: !input announce_targets
+          sequence:
+            - service: assist_satellite.announce
+              target:
+                entity_id: "{{ repeat.item }}"
+              data:
+                message: "{{ speak_msg }}"

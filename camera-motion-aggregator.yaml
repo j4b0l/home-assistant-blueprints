@@ -1,0 +1,723 @@
+blueprint:
+  name: Camera motion aggregator
+  description: |
+    Aggregate motion / person / vehicle / animal detections from up to 10
+    cameras into ONE notification and/or announcement per event burst.
+
+    How it works:
+      1. Any included detection sensor of any configured camera turns on.
+      2. The automation collects everything detected over the aggregation
+         period (default 5 s) — all detection types, all cameras.
+      3. It sends one push notification and one announcement, then stays quiet
+         for the pause period (default 30 s); detections during the pause are
+         ignored (not notified, not announced).
+
+    Message: "<types> at <cameras>", e.g. "Person, Vehicle at Driveway, Gate".
+      - <types>: if ONLY generic motion was seen -> the generic-motion text.
+        If any specific type (person / vehicle / animal) was seen -> those
+        texts, generic motion text always skipped, joined by ", ".
+      - <cameras>: the configured name of every camera that detected
+        something, joined by ", ".
+
+    Camera setup: pick the camera DEVICE and tick which detection types to
+    include. The detection sensors are located by entity-id suffix on that
+    device — binary_sensor.*_motion, *_person, *_vehicle, *_animal (or *_pet)
+    — which matches the Reolink integration's naming. Give each camera a short
+    name for the messages. Cameras with no device set are ignored.
+
+    Only one run happens at a time (mode: single); overlapping bursts are
+    absorbed into the current aggregation or dropped during the pause.
+
+    Version: 2026-09-11
+  domain: automation
+
+  input:
+    detection_section:
+      name: Detection
+      icon: mdi:motion-sensor
+      input:
+        aggregation_seconds:
+          name: Aggregation period (seconds)
+          description: Collect all detections for this long after the first one, then send once.
+          default: 5
+          selector:
+            number:
+              min: 1
+              max: 120
+              step: 1
+              unit_of_measurement: s
+              mode: slider
+        pause_seconds:
+          name: Pause after notifying (seconds)
+          description: Ignore new detections for this long after a notification/announcement.
+          default: 30
+          selector:
+            number:
+              min: 0
+              max: 3600
+              step: 1
+              unit_of_measurement: s
+              mode: slider
+
+    texts_section:
+      name: Message texts
+      icon: mdi:message-text
+      input:
+        text_motion:
+          name: Generic motion text
+          default: "Motion"
+          selector:
+            text: {}
+        text_person:
+          name: Person text
+          default: "Person"
+          selector:
+            text: {}
+        text_vehicle:
+          name: Vehicle text
+          default: "Vehicle"
+          selector:
+            text: {}
+        text_animal:
+          name: Animal text
+          default: "Animal"
+          selector:
+            text: {}
+
+    targets_section:
+      name: Targets
+      icon: mdi:bullhorn
+      input:
+        notify_devices:
+          name: Push-notification devices
+          description: Companion-app (mobile) devices that receive the push.
+          default: []
+          selector:
+            device:
+              multiple: true
+              filter:
+                - integration: mobile_app
+        announce_targets:
+          name: Announcement targets
+          description: Assist satellites (e.g. Home Assistant Voice) and/or media players.
+          default: []
+          selector:
+            entity:
+              multiple: true
+              filter:
+                - domain: assist_satellite
+                - domain: media_player
+        tts_engine:
+          name: TTS engine (for media players)
+          description: Used only for media_player targets; Assist satellites announce natively.
+          default:
+          selector:
+            entity:
+              filter:
+                - domain: tts
+
+    camera_1_section:
+      name: Camera 1
+      icon: mdi:cctv
+      collapsed: true
+      input:
+        cam1_device:
+          name: "Camera 1: device"
+          description: The camera device (its detection binary_sensors are found by name suffix).
+          default:
+          selector:
+            device: {}
+        cam1_name:
+          name: "Camera 1: name in messages"
+          default: ""
+          selector:
+            text: {}
+        cam1_motion:
+          name: "Camera 1: include generic motion"
+          default: true
+          selector:
+            boolean: {}
+        cam1_person:
+          name: "Camera 1: include person"
+          default: true
+          selector:
+            boolean: {}
+        cam1_vehicle:
+          name: "Camera 1: include vehicle"
+          default: true
+          selector:
+            boolean: {}
+        cam1_animal:
+          name: "Camera 1: include animal"
+          default: true
+          selector:
+            boolean: {}
+    camera_2_section:
+      name: Camera 2
+      icon: mdi:cctv
+      collapsed: true
+      input:
+        cam2_device:
+          name: "Camera 2: device"
+          description: The camera device (its detection binary_sensors are found by name suffix).
+          default:
+          selector:
+            device: {}
+        cam2_name:
+          name: "Camera 2: name in messages"
+          default: ""
+          selector:
+            text: {}
+        cam2_motion:
+          name: "Camera 2: include generic motion"
+          default: true
+          selector:
+            boolean: {}
+        cam2_person:
+          name: "Camera 2: include person"
+          default: true
+          selector:
+            boolean: {}
+        cam2_vehicle:
+          name: "Camera 2: include vehicle"
+          default: true
+          selector:
+            boolean: {}
+        cam2_animal:
+          name: "Camera 2: include animal"
+          default: true
+          selector:
+            boolean: {}
+    camera_3_section:
+      name: Camera 3
+      icon: mdi:cctv
+      collapsed: true
+      input:
+        cam3_device:
+          name: "Camera 3: device"
+          description: The camera device (its detection binary_sensors are found by name suffix).
+          default:
+          selector:
+            device: {}
+        cam3_name:
+          name: "Camera 3: name in messages"
+          default: ""
+          selector:
+            text: {}
+        cam3_motion:
+          name: "Camera 3: include generic motion"
+          default: true
+          selector:
+            boolean: {}
+        cam3_person:
+          name: "Camera 3: include person"
+          default: true
+          selector:
+            boolean: {}
+        cam3_vehicle:
+          name: "Camera 3: include vehicle"
+          default: true
+          selector:
+            boolean: {}
+        cam3_animal:
+          name: "Camera 3: include animal"
+          default: true
+          selector:
+            boolean: {}
+    camera_4_section:
+      name: Camera 4
+      icon: mdi:cctv
+      collapsed: true
+      input:
+        cam4_device:
+          name: "Camera 4: device"
+          description: The camera device (its detection binary_sensors are found by name suffix).
+          default:
+          selector:
+            device: {}
+        cam4_name:
+          name: "Camera 4: name in messages"
+          default: ""
+          selector:
+            text: {}
+        cam4_motion:
+          name: "Camera 4: include generic motion"
+          default: true
+          selector:
+            boolean: {}
+        cam4_person:
+          name: "Camera 4: include person"
+          default: true
+          selector:
+            boolean: {}
+        cam4_vehicle:
+          name: "Camera 4: include vehicle"
+          default: true
+          selector:
+            boolean: {}
+        cam4_animal:
+          name: "Camera 4: include animal"
+          default: true
+          selector:
+            boolean: {}
+    camera_5_section:
+      name: Camera 5
+      icon: mdi:cctv
+      collapsed: true
+      input:
+        cam5_device:
+          name: "Camera 5: device"
+          description: The camera device (its detection binary_sensors are found by name suffix).
+          default:
+          selector:
+            device: {}
+        cam5_name:
+          name: "Camera 5: name in messages"
+          default: ""
+          selector:
+            text: {}
+        cam5_motion:
+          name: "Camera 5: include generic motion"
+          default: true
+          selector:
+            boolean: {}
+        cam5_person:
+          name: "Camera 5: include person"
+          default: true
+          selector:
+            boolean: {}
+        cam5_vehicle:
+          name: "Camera 5: include vehicle"
+          default: true
+          selector:
+            boolean: {}
+        cam5_animal:
+          name: "Camera 5: include animal"
+          default: true
+          selector:
+            boolean: {}
+    camera_6_section:
+      name: Camera 6
+      icon: mdi:cctv
+      collapsed: true
+      input:
+        cam6_device:
+          name: "Camera 6: device"
+          description: The camera device (its detection binary_sensors are found by name suffix).
+          default:
+          selector:
+            device: {}
+        cam6_name:
+          name: "Camera 6: name in messages"
+          default: ""
+          selector:
+            text: {}
+        cam6_motion:
+          name: "Camera 6: include generic motion"
+          default: true
+          selector:
+            boolean: {}
+        cam6_person:
+          name: "Camera 6: include person"
+          default: true
+          selector:
+            boolean: {}
+        cam6_vehicle:
+          name: "Camera 6: include vehicle"
+          default: true
+          selector:
+            boolean: {}
+        cam6_animal:
+          name: "Camera 6: include animal"
+          default: true
+          selector:
+            boolean: {}
+    camera_7_section:
+      name: Camera 7
+      icon: mdi:cctv
+      collapsed: true
+      input:
+        cam7_device:
+          name: "Camera 7: device"
+          description: The camera device (its detection binary_sensors are found by name suffix).
+          default:
+          selector:
+            device: {}
+        cam7_name:
+          name: "Camera 7: name in messages"
+          default: ""
+          selector:
+            text: {}
+        cam7_motion:
+          name: "Camera 7: include generic motion"
+          default: true
+          selector:
+            boolean: {}
+        cam7_person:
+          name: "Camera 7: include person"
+          default: true
+          selector:
+            boolean: {}
+        cam7_vehicle:
+          name: "Camera 7: include vehicle"
+          default: true
+          selector:
+            boolean: {}
+        cam7_animal:
+          name: "Camera 7: include animal"
+          default: true
+          selector:
+            boolean: {}
+    camera_8_section:
+      name: Camera 8
+      icon: mdi:cctv
+      collapsed: true
+      input:
+        cam8_device:
+          name: "Camera 8: device"
+          description: The camera device (its detection binary_sensors are found by name suffix).
+          default:
+          selector:
+            device: {}
+        cam8_name:
+          name: "Camera 8: name in messages"
+          default: ""
+          selector:
+            text: {}
+        cam8_motion:
+          name: "Camera 8: include generic motion"
+          default: true
+          selector:
+            boolean: {}
+        cam8_person:
+          name: "Camera 8: include person"
+          default: true
+          selector:
+            boolean: {}
+        cam8_vehicle:
+          name: "Camera 8: include vehicle"
+          default: true
+          selector:
+            boolean: {}
+        cam8_animal:
+          name: "Camera 8: include animal"
+          default: true
+          selector:
+            boolean: {}
+    camera_9_section:
+      name: Camera 9
+      icon: mdi:cctv
+      collapsed: true
+      input:
+        cam9_device:
+          name: "Camera 9: device"
+          description: The camera device (its detection binary_sensors are found by name suffix).
+          default:
+          selector:
+            device: {}
+        cam9_name:
+          name: "Camera 9: name in messages"
+          default: ""
+          selector:
+            text: {}
+        cam9_motion:
+          name: "Camera 9: include generic motion"
+          default: true
+          selector:
+            boolean: {}
+        cam9_person:
+          name: "Camera 9: include person"
+          default: true
+          selector:
+            boolean: {}
+        cam9_vehicle:
+          name: "Camera 9: include vehicle"
+          default: true
+          selector:
+            boolean: {}
+        cam9_animal:
+          name: "Camera 9: include animal"
+          default: true
+          selector:
+            boolean: {}
+    camera_10_section:
+      name: Camera 10
+      icon: mdi:cctv
+      collapsed: true
+      input:
+        cam10_device:
+          name: "Camera 10: device"
+          description: The camera device (its detection binary_sensors are found by name suffix).
+          default:
+          selector:
+            device: {}
+        cam10_name:
+          name: "Camera 10: name in messages"
+          default: ""
+          selector:
+            text: {}
+        cam10_motion:
+          name: "Camera 10: include generic motion"
+          default: true
+          selector:
+            boolean: {}
+        cam10_person:
+          name: "Camera 10: include person"
+          default: true
+          selector:
+            boolean: {}
+        cam10_vehicle:
+          name: "Camera 10: include vehicle"
+          default: true
+          selector:
+            boolean: {}
+        cam10_animal:
+          name: "Camera 10: include animal"
+          default: true
+          selector:
+            boolean: {}
+
+mode: single
+max_exceeded: silent
+
+trigger_variables:
+  cam1_device: !input cam1_device
+  cam1_motion: !input cam1_motion
+  cam1_person: !input cam1_person
+  cam1_vehicle: !input cam1_vehicle
+  cam1_animal: !input cam1_animal
+  cam2_device: !input cam2_device
+  cam2_motion: !input cam2_motion
+  cam2_person: !input cam2_person
+  cam2_vehicle: !input cam2_vehicle
+  cam2_animal: !input cam2_animal
+  cam3_device: !input cam3_device
+  cam3_motion: !input cam3_motion
+  cam3_person: !input cam3_person
+  cam3_vehicle: !input cam3_vehicle
+  cam3_animal: !input cam3_animal
+  cam4_device: !input cam4_device
+  cam4_motion: !input cam4_motion
+  cam4_person: !input cam4_person
+  cam4_vehicle: !input cam4_vehicle
+  cam4_animal: !input cam4_animal
+  cam5_device: !input cam5_device
+  cam5_motion: !input cam5_motion
+  cam5_person: !input cam5_person
+  cam5_vehicle: !input cam5_vehicle
+  cam5_animal: !input cam5_animal
+  cam6_device: !input cam6_device
+  cam6_motion: !input cam6_motion
+  cam6_person: !input cam6_person
+  cam6_vehicle: !input cam6_vehicle
+  cam6_animal: !input cam6_animal
+  cam7_device: !input cam7_device
+  cam7_motion: !input cam7_motion
+  cam7_person: !input cam7_person
+  cam7_vehicle: !input cam7_vehicle
+  cam7_animal: !input cam7_animal
+  cam8_device: !input cam8_device
+  cam8_motion: !input cam8_motion
+  cam8_person: !input cam8_person
+  cam8_vehicle: !input cam8_vehicle
+  cam8_animal: !input cam8_animal
+  cam9_device: !input cam9_device
+  cam9_motion: !input cam9_motion
+  cam9_person: !input cam9_person
+  cam9_vehicle: !input cam9_vehicle
+  cam9_animal: !input cam9_animal
+  cam10_device: !input cam10_device
+  cam10_motion: !input cam10_motion
+  cam10_person: !input cam10_person
+  cam10_vehicle: !input cam10_vehicle
+  cam10_animal: !input cam10_animal
+
+trigger:
+  # Fires when ANY included detection sensor of any configured camera is on.
+  - platform: template
+    value_template: >
+      {%- set cams = [
+        {'dev': cam1_device, 'motion': cam1_motion, 'person': cam1_person, 'vehicle': cam1_vehicle, 'animal': cam1_animal},
+        {'dev': cam2_device, 'motion': cam2_motion, 'person': cam2_person, 'vehicle': cam2_vehicle, 'animal': cam2_animal},
+        {'dev': cam3_device, 'motion': cam3_motion, 'person': cam3_person, 'vehicle': cam3_vehicle, 'animal': cam3_animal},
+        {'dev': cam4_device, 'motion': cam4_motion, 'person': cam4_person, 'vehicle': cam4_vehicle, 'animal': cam4_animal},
+        {'dev': cam5_device, 'motion': cam5_motion, 'person': cam5_person, 'vehicle': cam5_vehicle, 'animal': cam5_animal},
+        {'dev': cam6_device, 'motion': cam6_motion, 'person': cam6_person, 'vehicle': cam6_vehicle, 'animal': cam6_animal},
+        {'dev': cam7_device, 'motion': cam7_motion, 'person': cam7_person, 'vehicle': cam7_vehicle, 'animal': cam7_animal},
+        {'dev': cam8_device, 'motion': cam8_motion, 'person': cam8_person, 'vehicle': cam8_vehicle, 'animal': cam8_animal},
+        {'dev': cam9_device, 'motion': cam9_motion, 'person': cam9_person, 'vehicle': cam9_vehicle, 'animal': cam9_animal},
+        {'dev': cam10_device, 'motion': cam10_motion, 'person': cam10_person, 'vehicle': cam10_vehicle, 'animal': cam10_animal}] -%}
+      {%- set W = namespace(items=[]) -%}
+      {%- for c in cams if c.dev not in [none, ''] -%}
+        {%- for e in device_entities(c.dev) if e.startswith('binary_sensor.') -%}
+          {%- set t = none -%}
+          {%- if c.motion and e.endswith('_motion') -%}{%- set t = 'motion' -%}
+          {%- elif c.person and e.endswith('_person') -%}{%- set t = 'person' -%}
+          {%- elif c.vehicle and e.endswith('_vehicle') -%}{%- set t = 'vehicle' -%}
+          {%- elif c.animal and (e.endswith('_animal') or e.endswith('_pet')) -%}{%- set t = 'animal' -%}{%- endif -%}
+          {%- if t is not none -%}{%- set W.items = W.items + [{'e': e, 'cam': c.name, 'type': t}] -%}{%- endif -%}
+        {%- endfor -%}
+      {%- endfor -%}
+      {{ W.items | map(attribute='e') | map('states') | select('eq', 'on') | list | count > 0 }}
+
+variables:
+  aggregation_seconds: !input aggregation_seconds
+  pause_seconds: !input pause_seconds
+  text_motion: !input text_motion
+  text_person: !input text_person
+  text_vehicle: !input text_vehicle
+  text_animal: !input text_animal
+  tts_engine: !input tts_engine
+  cam1_device: !input cam1_device
+  cam1_name: !input cam1_name
+  cam1_motion: !input cam1_motion
+  cam1_person: !input cam1_person
+  cam1_vehicle: !input cam1_vehicle
+  cam1_animal: !input cam1_animal
+  cam2_device: !input cam2_device
+  cam2_name: !input cam2_name
+  cam2_motion: !input cam2_motion
+  cam2_person: !input cam2_person
+  cam2_vehicle: !input cam2_vehicle
+  cam2_animal: !input cam2_animal
+  cam3_device: !input cam3_device
+  cam3_name: !input cam3_name
+  cam3_motion: !input cam3_motion
+  cam3_person: !input cam3_person
+  cam3_vehicle: !input cam3_vehicle
+  cam3_animal: !input cam3_animal
+  cam4_device: !input cam4_device
+  cam4_name: !input cam4_name
+  cam4_motion: !input cam4_motion
+  cam4_person: !input cam4_person
+  cam4_vehicle: !input cam4_vehicle
+  cam4_animal: !input cam4_animal
+  cam5_device: !input cam5_device
+  cam5_name: !input cam5_name
+  cam5_motion: !input cam5_motion
+  cam5_person: !input cam5_person
+  cam5_vehicle: !input cam5_vehicle
+  cam5_animal: !input cam5_animal
+  cam6_device: !input cam6_device
+  cam6_name: !input cam6_name
+  cam6_motion: !input cam6_motion
+  cam6_person: !input cam6_person
+  cam6_vehicle: !input cam6_vehicle
+  cam6_animal: !input cam6_animal
+  cam7_device: !input cam7_device
+  cam7_name: !input cam7_name
+  cam7_motion: !input cam7_motion
+  cam7_person: !input cam7_person
+  cam7_vehicle: !input cam7_vehicle
+  cam7_animal: !input cam7_animal
+  cam8_device: !input cam8_device
+  cam8_name: !input cam8_name
+  cam8_motion: !input cam8_motion
+  cam8_person: !input cam8_person
+  cam8_vehicle: !input cam8_vehicle
+  cam8_animal: !input cam8_animal
+  cam9_device: !input cam9_device
+  cam9_name: !input cam9_name
+  cam9_motion: !input cam9_motion
+  cam9_person: !input cam9_person
+  cam9_vehicle: !input cam9_vehicle
+  cam9_animal: !input cam9_animal
+  cam10_device: !input cam10_device
+  cam10_name: !input cam10_name
+  cam10_motion: !input cam10_motion
+  cam10_person: !input cam10_person
+  cam10_vehicle: !input cam10_vehicle
+  cam10_animal: !input cam10_animal
+  # Every watched sensor: {e, cam, type}.
+  watched: >
+    {%- set cams = [
+      {'dev': cam1_device, 'name': cam1_name, 'motion': cam1_motion, 'person': cam1_person, 'vehicle': cam1_vehicle, 'animal': cam1_animal},
+      {'dev': cam2_device, 'name': cam2_name, 'motion': cam2_motion, 'person': cam2_person, 'vehicle': cam2_vehicle, 'animal': cam2_animal},
+      {'dev': cam3_device, 'name': cam3_name, 'motion': cam3_motion, 'person': cam3_person, 'vehicle': cam3_vehicle, 'animal': cam3_animal},
+      {'dev': cam4_device, 'name': cam4_name, 'motion': cam4_motion, 'person': cam4_person, 'vehicle': cam4_vehicle, 'animal': cam4_animal},
+      {'dev': cam5_device, 'name': cam5_name, 'motion': cam5_motion, 'person': cam5_person, 'vehicle': cam5_vehicle, 'animal': cam5_animal},
+      {'dev': cam6_device, 'name': cam6_name, 'motion': cam6_motion, 'person': cam6_person, 'vehicle': cam6_vehicle, 'animal': cam6_animal},
+      {'dev': cam7_device, 'name': cam7_name, 'motion': cam7_motion, 'person': cam7_person, 'vehicle': cam7_vehicle, 'animal': cam7_animal},
+      {'dev': cam8_device, 'name': cam8_name, 'motion': cam8_motion, 'person': cam8_person, 'vehicle': cam8_vehicle, 'animal': cam8_animal},
+      {'dev': cam9_device, 'name': cam9_name, 'motion': cam9_motion, 'person': cam9_person, 'vehicle': cam9_vehicle, 'animal': cam9_animal},
+      {'dev': cam10_device, 'name': cam10_name, 'motion': cam10_motion, 'person': cam10_person, 'vehicle': cam10_vehicle, 'animal': cam10_animal}] -%}
+      {%- set W = namespace(items=[]) -%}
+      {%- for c in cams if c.dev not in [none, ''] -%}
+        {%- for e in device_entities(c.dev) if e.startswith('binary_sensor.') -%}
+          {%- set t = none -%}
+          {%- if c.motion and e.endswith('_motion') -%}{%- set t = 'motion' -%}
+          {%- elif c.person and e.endswith('_person') -%}{%- set t = 'person' -%}
+          {%- elif c.vehicle and e.endswith('_vehicle') -%}{%- set t = 'vehicle' -%}
+          {%- elif c.animal and (e.endswith('_animal') or e.endswith('_pet')) -%}{%- set t = 'animal' -%}{%- endif -%}
+          {%- if t is not none -%}{%- set W.items = W.items + [{'e': e, 'cam': c.name, 'type': t}] -%}{%- endif -%}
+        {%- endfor -%}
+      {%- endfor -%}
+    {{ W.items }}
+
+action:
+  # 1) first trigger: note what is on now  2) wait the aggregation period
+  # 3) collect everything on at any point in the window  4) notify/announce  5) pause
+  - variables:
+      hits_start: >
+        {%- set H = namespace(items=[]) -%}
+        {%- for w in watched if states(w.e) == 'on' -%}{%- set H.items = H.items + [w] -%}{%- endfor -%}
+        {{ H.items }}
+  - delay:
+      seconds: "{{ aggregation_seconds | int }}"
+  - variables:
+      # Everything that was on at ANY point during the window: still on now, or
+      # switched off within the window (so it must have been on during it).
+      hits_end: >
+        {%- set cutoff = as_timestamp(now()) - ((aggregation_seconds | int) + 1) -%}
+        {%- set H = namespace(items=[]) -%}
+        {%- for w in watched -%}
+          {%- set st = states[w.e] -%}
+          {%- if st is not none and (st.state == 'on' or (st.state == 'off' and as_timestamp(st.last_changed) >= cutoff)) -%}{%- set H.items = H.items + [w] -%}{%- endif -%}
+        {%- endfor -%}
+        {{ H.items }}
+      hits: "{{ (hits_start + hits_end) | unique(attribute='e') | list }}"
+      types: "{{ hits | map(attribute='type') | unique | list }}"
+      cam_names: "{{ hits | map(attribute='cam') | reject('eq', '') | unique | list }}"
+      type_text: >-
+        {%- set specific = [] -%}
+        {%- if 'person' in types -%}{%- set specific = specific + [text_person] -%}{%- endif -%}
+        {%- if 'vehicle' in types -%}{%- set specific = specific + [text_vehicle] -%}{%- endif -%}
+        {%- if 'animal' in types -%}{%- set specific = specific + [text_animal] -%}{%- endif -%}
+        {{ (specific | join(', ')) if specific | count > 0 else text_motion }}
+  - variables:
+      message: "{{ type_text }} at {{ cam_names | join(', ') }}"
+  # Send once (skip if nothing was actually detected by the time we look).
+  - if:
+      - "{{ hits | count > 0 }}"
+    then:
+      - repeat:
+          for_each: !input notify_devices
+          sequence:
+            - service: "notify.mobile_app_{{ device_attr(repeat.item, 'name') | slugify }}"
+              data:
+                title: "📷 Motion"
+                message: "{{ message }}"
+      - repeat:
+          for_each: !input announce_targets
+          sequence:
+            - choose:
+                - conditions:
+                    - "{{ repeat.item.startswith('assist_satellite.') }}"
+                  sequence:
+                    - service: assist_satellite.announce
+                      target:
+                        entity_id: "{{ repeat.item }}"
+                      data:
+                        message: "{{ message }}"
+                - conditions:
+                    - "{{ repeat.item.startswith('media_player.') and tts_engine not in [none, ''] }}"
+                  sequence:
+                    - service: tts.speak
+                      target:
+                        entity_id: "{{ tts_engine }}"
+                      data:
+                        media_player_entity_id: "{{ repeat.item }}"
+                        message: "{{ message }}"
+  # Quiet period: with mode single, detections arriving now are dropped.
+  - delay:
+      seconds: "{{ pause_seconds | int }}"
