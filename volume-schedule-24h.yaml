@@ -1,0 +1,341 @@
+blueprint:
+  name: 24h volume schedule
+  description: |
+    Set the volume of ONE media player to a chosen level at up to 10 times of
+    day. Between those times the automation does NOTHING, so any volume you set
+    by hand (or that another automation sets) is left alone until the next
+    scheduled time.
+
+    Each slot is a time + a volume level (0-100 %). Slot 1 is pre-filled
+    (07:00, 50 %); slots 2-10 are optional - leave the time empty to skip a
+    slot. Slots may be in any order.
+
+    At a scheduled time the volume is applied only if the player is available
+    (not "unavailable"/"unknown"). If two slots share the same time the later
+    slot wins.
+
+    Optional catch-up: when enabled, the most recent slot's volume is applied
+    again whenever the player comes back from unavailable/off (e.g. it was
+    powered off at the scheduled time). Off by default, because it overrides a
+    manual volume set before the player went away.
+
+    Version: 2026-09-11
+  domain: automation
+
+  input:
+    player_section:
+      name: Player
+      icon: mdi:speaker
+      input:
+        player:
+          name: Media player
+          description: The single media player whose volume is scheduled.
+          selector:
+            entity:
+              filter:
+                - domain: media_player
+        catch_up:
+          name: Catch up when the player comes back
+          description: >
+            When the player returns from unavailable/off, re-apply the volume of
+            the most recent slot that has already passed today (or the last slot
+            of yesterday). Leave off to never touch the volume between slots.
+          default: false
+          selector:
+            boolean: {}
+
+    slot_1_section:
+      name: Time 1
+      icon: mdi:clock-time-one-outline
+      input:
+        time_1:
+          name: "Time 1"
+          description: Leave empty to skip this slot.
+          default: "07:00:00"
+          selector:
+            time: {}
+        volume_1:
+          name: "Volume at time 1 (%)"
+          default: 50
+          selector:
+            number:
+              min: 0
+              max: 100
+              step: 1
+              unit_of_measurement: "%"
+              mode: slider
+
+    slot_2_section:
+      name: Time 2 (optional)
+      icon: mdi:clock-time-two-outline
+      input:
+        time_2:
+          name: "Time 2"
+          description: Leave empty to skip this slot.
+          default: 
+          selector:
+            time: {}
+        volume_2:
+          name: "Volume at time 2 (%)"
+          default: 50
+          selector:
+            number:
+              min: 0
+              max: 100
+              step: 1
+              unit_of_measurement: "%"
+              mode: slider
+
+    slot_3_section:
+      name: Time 3 (optional)
+      icon: mdi:clock-time-three-outline
+      input:
+        time_3:
+          name: "Time 3"
+          description: Leave empty to skip this slot.
+          default: 
+          selector:
+            time: {}
+        volume_3:
+          name: "Volume at time 3 (%)"
+          default: 50
+          selector:
+            number:
+              min: 0
+              max: 100
+              step: 1
+              unit_of_measurement: "%"
+              mode: slider
+
+    slot_4_section:
+      name: Time 4 (optional)
+      icon: mdi:clock-time-four-outline
+      collapsed: true
+      input:
+        time_4:
+          name: "Time 4"
+          description: Leave empty to skip this slot.
+          default: 
+          selector:
+            time: {}
+        volume_4:
+          name: "Volume at time 4 (%)"
+          default: 50
+          selector:
+            number:
+              min: 0
+              max: 100
+              step: 1
+              unit_of_measurement: "%"
+              mode: slider
+
+    slot_5_section:
+      name: Time 5 (optional)
+      icon: mdi:clock-time-five-outline
+      collapsed: true
+      input:
+        time_5:
+          name: "Time 5"
+          description: Leave empty to skip this slot.
+          default: 
+          selector:
+            time: {}
+        volume_5:
+          name: "Volume at time 5 (%)"
+          default: 50
+          selector:
+            number:
+              min: 0
+              max: 100
+              step: 1
+              unit_of_measurement: "%"
+              mode: slider
+
+    slot_6_section:
+      name: Time 6 (optional)
+      icon: mdi:clock-time-six-outline
+      collapsed: true
+      input:
+        time_6:
+          name: "Time 6"
+          description: Leave empty to skip this slot.
+          default: 
+          selector:
+            time: {}
+        volume_6:
+          name: "Volume at time 6 (%)"
+          default: 50
+          selector:
+            number:
+              min: 0
+              max: 100
+              step: 1
+              unit_of_measurement: "%"
+              mode: slider
+
+    slot_7_section:
+      name: Time 7 (optional)
+      icon: mdi:clock-time-seven-outline
+      collapsed: true
+      input:
+        time_7:
+          name: "Time 7"
+          description: Leave empty to skip this slot.
+          default: 
+          selector:
+            time: {}
+        volume_7:
+          name: "Volume at time 7 (%)"
+          default: 50
+          selector:
+            number:
+              min: 0
+              max: 100
+              step: 1
+              unit_of_measurement: "%"
+              mode: slider
+
+    slot_8_section:
+      name: Time 8 (optional)
+      icon: mdi:clock-time-eight-outline
+      collapsed: true
+      input:
+        time_8:
+          name: "Time 8"
+          description: Leave empty to skip this slot.
+          default: 
+          selector:
+            time: {}
+        volume_8:
+          name: "Volume at time 8 (%)"
+          default: 50
+          selector:
+            number:
+              min: 0
+              max: 100
+              step: 1
+              unit_of_measurement: "%"
+              mode: slider
+
+    slot_9_section:
+      name: Time 9 (optional)
+      icon: mdi:clock-time-nine-outline
+      collapsed: true
+      input:
+        time_9:
+          name: "Time 9"
+          description: Leave empty to skip this slot.
+          default: 
+          selector:
+            time: {}
+        volume_9:
+          name: "Volume at time 9 (%)"
+          default: 50
+          selector:
+            number:
+              min: 0
+              max: 100
+              step: 1
+              unit_of_measurement: "%"
+              mode: slider
+
+    slot_10_section:
+      name: Time 10 (optional)
+      icon: mdi:clock-time-ten-outline
+      collapsed: true
+      input:
+        time_10:
+          name: "Time 10"
+          description: Leave empty to skip this slot.
+          default: 
+          selector:
+            time: {}
+        volume_10:
+          name: "Volume at time 10 (%)"
+          default: 50
+          selector:
+            number:
+              min: 0
+              max: 100
+              step: 1
+              unit_of_measurement: "%"
+              mode: slider
+
+mode: single
+max_exceeded: silent
+
+variables:
+  player: !input player
+  catch_up: !input catch_up
+  t1: !input time_1
+  v1: !input volume_1
+  t2: !input time_2
+  v2: !input volume_2
+  t3: !input time_3
+  v3: !input volume_3
+  t4: !input time_4
+  v4: !input volume_4
+  t5: !input time_5
+  v5: !input volume_5
+  t6: !input time_6
+  v6: !input volume_6
+  t7: !input time_7
+  v7: !input volume_7
+  t8: !input time_8
+  v8: !input volume_8
+  t9: !input time_9
+  v9: !input volume_9
+  t10: !input time_10
+  v10: !input volume_10
+  # Configured slots: only those with a non-empty time, as [{'t': 'HH:MM', 'v': pct}].
+  slots: >-
+    {%- set ns = namespace(l=[]) -%}
+    {%- for s in [{'t': t1, 'v': v1}, {'t': t2, 'v': v2}, {'t': t3, 'v': v3}, {'t': t4, 'v': v4}, {'t': t5, 'v': v5}, {'t': t6, 'v': v6}, {'t': t7, 'v': v7}, {'t': t8, 'v': v8}, {'t': t9, 'v': v9}, {'t': t10, 'v': v10}] -%}
+      {%- if s.t is string and (s.t | length) >= 5 -%}
+        {%- set ns.l = ns.l + [{'t': s.t[0:5], 'v': (s.v | float(50)) }] -%}
+      {%- endif -%}
+    {%- endfor -%}
+    {{ ns.l }}
+  now_hm: "{{ now().strftime('%H:%M') }}"
+  # Slot due at this minute (last matching wins), or none.
+  due_volume: >-
+    {%- set ns = namespace(v=none) -%}
+    {%- for s in slots if s.t == now_hm -%}{%- set ns.v = s.v -%}{%- endfor -%}
+    {{ ns.v }}
+  # Volume of the most recent slot already passed today; if none passed yet,
+  # the latest slot of the day (i.e. yesterday's last). none if no slots.
+  latest_volume: >-
+    {%- set ns = namespace(v=none, bt='', lv=none, lt='') -%}
+    {%- for s in slots -%}
+      {%- if s.t <= now_hm and s.t >= ns.bt -%}{%- set ns.bt = s.t -%}{%- set ns.v = s.v -%}{%- endif -%}
+      {%- if s.t >= ns.lt -%}{%- set ns.lt = s.t -%}{%- set ns.lv = s.v -%}{%- endif -%}
+    {%- endfor -%}
+    {{ ns.v if ns.v is not none else ns.lv }}
+  player_ok: "{{ states(player) not in ['unavailable', 'unknown'] }}"
+
+trigger:
+  - platform: time_pattern
+    minutes: "/1"
+    id: tick
+  - platform: state
+    entity_id: !input player
+    from:
+      - unavailable
+      - unknown
+      - "off"
+    id: back
+
+condition:
+  - "{{ player_ok }}"
+  - or:
+      - "{{ trigger.id == 'tick' and due_volume is not none }}"
+      - "{{ trigger.id == 'back' and catch_up and latest_volume is not none }}"
+
+action:
+  - variables:
+      target_volume: "{{ due_volume if trigger.id == 'tick' else latest_volume }}"
+  - service: media_player.volume_set
+    target:
+      entity_id: "{{ player }}"
+    data:
+      volume_level: "{{ ((target_volume | float) / 100) | round(3) }}"
