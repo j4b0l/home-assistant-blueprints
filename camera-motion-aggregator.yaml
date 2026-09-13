@@ -25,6 +25,9 @@ blueprint:
     — which matches the Reolink integration's naming. Give each camera a short
     name for the messages. Cameras with no device set are ignored.
 
+    Satellite announcements can play a pre-announce chime (default on) or a custom
+    sound picked from the media browser, like the built-in Announce action.
+
     Push notifications and announcements each have their own daily time window
     (default 07:00-22:00); outside it that channel is skipped.
 
@@ -118,6 +121,25 @@ blueprint:
             entity:
               filter:
                 - domain: tts
+        preannounce:
+          name: Pre-announce sound (Assist satellites)
+          description: >
+            Play a chime on the satellite before the message, like the
+            "Preannounce" option of the built-in Announce action.
+          default: true
+          selector:
+            boolean: {}
+        preannounce_media_id:
+          name: Pre-announce media (optional)
+          description: >
+            Custom sound to play instead of the satellite's default chime. Pick
+            an audio file from the media browser, or leave empty for the default.
+            Only used when "Pre-announce sound" is on.
+          default:
+          selector:
+            media:
+              accept:
+                - audio/*
 
     windows_section:
       name: Time windows
@@ -602,6 +624,13 @@ variables:
   text_vehicle: !input text_vehicle
   text_animal: !input text_animal
   tts_engine: !input tts_engine
+  preannounce: !input preannounce
+  preannounce_media: !input preannounce_media_id
+  # The media selector returns a dict; accept a plain URI string too.
+  preannounce_media_id: >-
+    {%- if preannounce_media is mapping -%}{{ preannounce_media.media_content_id | default('') }}
+    {%- elif preannounce_media is string -%}{{ preannounce_media }}
+    {%- else -%}{{ '' }}{%- endif -%}
   nw_start: !input notify_window_start
   nw_end: !input notify_window_end
   aw_start: !input announce_window_start
@@ -757,8 +786,11 @@ action:
                         - service: assist_satellite.announce
                           target:
                             entity_id: "{{ repeat.item }}"
-                          data:
-                            message: "{{ message }}"
+                          data: >-
+                            {%- set d = {'message': message, 'preannounce': preannounce | bool(true)} -%}
+                            {%- if (preannounce | bool(true)) and (preannounce_media_id | trim) -%}
+                              {{ d | combine({'preannounce_media_id': preannounce_media_id | trim}) }}
+                            {%- else -%}{{ d }}{%- endif -%}
                     - conditions:
                         - "{{ repeat.item.startswith('media_player.') and tts_engine not in [none, ''] }}"
                       sequence:
