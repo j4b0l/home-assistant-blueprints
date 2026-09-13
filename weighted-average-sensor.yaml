@@ -1,0 +1,594 @@
+blueprint:
+  name: Weighted average sensor
+  description: |
+    One sensor that is the WEIGHTED AVERAGE of up to 20 source sensors - e.g.
+    a whole-home temperature (or humidity) where each room counts in
+    proportion to its floor area or volume.
+
+    Per room: pick the source sensor and give it a weight (m² or m³). Empty
+    slots and rooms with weight 0 are ignored. Sources that are unavailable,
+    unknown or non-numeric are skipped at that moment, so one dead sensor does
+    not break the average; the sensor becomes unavailable only when every
+    weighted source is gone.
+
+    Result = sum(value × weight) / sum(weight), rounded to "Precision".
+
+    This is a TEMPLATE blueprint: it is used from YAML, not from the Helpers UI.
+    Install it under blueprints/template/... and create each sensor with:
+
+      template:
+        - use_blueprint:
+            path: j4b0l/weighted-average-sensor.yaml
+            input:
+              unit: "°C"
+              device_class: temperature
+              room_1: sensor.salon_temperature
+              weight_1: 35
+          name: "Dom – temperatura (średnia ważona)"
+          unique_id: home_weighted_temperature
+
+    Then reload Template entities (Developer tools -> YAML). Use it twice for
+    temperature and humidity - two inputs sets, two outputs.
+
+    Version: 2026-09-13
+  domain: template
+
+  input:
+    output_section:
+      name: Output
+      icon: mdi:sigma
+      input:
+        unit:
+          name: Unit of measurement
+          default: "°C"
+          selector:
+            select:
+              options:
+                - "°C"
+                - "%"
+                - "ppm"
+                - "µg/m³"
+                - "hPa"
+                - "lx"
+              custom_value: true
+        device_class:
+          name: Device class
+          default: temperature
+          selector:
+            select:
+              options:
+                - temperature
+                - humidity
+                - carbon_dioxide
+                - pm25
+                - atmospheric_pressure
+                - illuminance
+        precision:
+          name: Precision (decimal places)
+          default: 1
+          selector:
+            number:
+              min: 0
+              max: 3
+              step: 1
+              mode: box
+
+    room_1_section:
+      name: Room 1
+      icon: mdi:floor-plan
+      input:
+        room_1:
+          name: "Room 1: sensor"
+          description: Leave empty to skip this slot.
+          default:
+          selector:
+            entity:
+              filter:
+                - domain: sensor
+        weight_1:
+          name: "Room 1: weight"
+          description: Floor area (m²) or volume (m³). 0 excludes the room.
+          default: 0
+          selector:
+            number:
+              min: 0
+              max: 1000
+              step: 0.1
+              mode: box
+
+    room_2_section:
+      name: Room 2
+      icon: mdi:floor-plan
+      input:
+        room_2:
+          name: "Room 2: sensor"
+          description: Leave empty to skip this slot.
+          default:
+          selector:
+            entity:
+              filter:
+                - domain: sensor
+        weight_2:
+          name: "Room 2: weight"
+          description: Floor area (m²) or volume (m³). 0 excludes the room.
+          default: 0
+          selector:
+            number:
+              min: 0
+              max: 1000
+              step: 0.1
+              mode: box
+
+    room_3_section:
+      name: Room 3
+      icon: mdi:floor-plan
+      input:
+        room_3:
+          name: "Room 3: sensor"
+          description: Leave empty to skip this slot.
+          default:
+          selector:
+            entity:
+              filter:
+                - domain: sensor
+        weight_3:
+          name: "Room 3: weight"
+          description: Floor area (m²) or volume (m³). 0 excludes the room.
+          default: 0
+          selector:
+            number:
+              min: 0
+              max: 1000
+              step: 0.1
+              mode: box
+
+    room_4_section:
+      name: Room 4
+      icon: mdi:floor-plan
+      input:
+        room_4:
+          name: "Room 4: sensor"
+          description: Leave empty to skip this slot.
+          default:
+          selector:
+            entity:
+              filter:
+                - domain: sensor
+        weight_4:
+          name: "Room 4: weight"
+          description: Floor area (m²) or volume (m³). 0 excludes the room.
+          default: 0
+          selector:
+            number:
+              min: 0
+              max: 1000
+              step: 0.1
+              mode: box
+
+    room_5_section:
+      name: Room 5
+      icon: mdi:floor-plan
+      input:
+        room_5:
+          name: "Room 5: sensor"
+          description: Leave empty to skip this slot.
+          default:
+          selector:
+            entity:
+              filter:
+                - domain: sensor
+        weight_5:
+          name: "Room 5: weight"
+          description: Floor area (m²) or volume (m³). 0 excludes the room.
+          default: 0
+          selector:
+            number:
+              min: 0
+              max: 1000
+              step: 0.1
+              mode: box
+
+    room_6_section:
+      name: Room 6
+      icon: mdi:floor-plan
+      collapsed: true
+      input:
+        room_6:
+          name: "Room 6: sensor"
+          description: Leave empty to skip this slot.
+          default:
+          selector:
+            entity:
+              filter:
+                - domain: sensor
+        weight_6:
+          name: "Room 6: weight"
+          description: Floor area (m²) or volume (m³). 0 excludes the room.
+          default: 0
+          selector:
+            number:
+              min: 0
+              max: 1000
+              step: 0.1
+              mode: box
+
+    room_7_section:
+      name: Room 7
+      icon: mdi:floor-plan
+      collapsed: true
+      input:
+        room_7:
+          name: "Room 7: sensor"
+          description: Leave empty to skip this slot.
+          default:
+          selector:
+            entity:
+              filter:
+                - domain: sensor
+        weight_7:
+          name: "Room 7: weight"
+          description: Floor area (m²) or volume (m³). 0 excludes the room.
+          default: 0
+          selector:
+            number:
+              min: 0
+              max: 1000
+              step: 0.1
+              mode: box
+
+    room_8_section:
+      name: Room 8
+      icon: mdi:floor-plan
+      collapsed: true
+      input:
+        room_8:
+          name: "Room 8: sensor"
+          description: Leave empty to skip this slot.
+          default:
+          selector:
+            entity:
+              filter:
+                - domain: sensor
+        weight_8:
+          name: "Room 8: weight"
+          description: Floor area (m²) or volume (m³). 0 excludes the room.
+          default: 0
+          selector:
+            number:
+              min: 0
+              max: 1000
+              step: 0.1
+              mode: box
+
+    room_9_section:
+      name: Room 9
+      icon: mdi:floor-plan
+      collapsed: true
+      input:
+        room_9:
+          name: "Room 9: sensor"
+          description: Leave empty to skip this slot.
+          default:
+          selector:
+            entity:
+              filter:
+                - domain: sensor
+        weight_9:
+          name: "Room 9: weight"
+          description: Floor area (m²) or volume (m³). 0 excludes the room.
+          default: 0
+          selector:
+            number:
+              min: 0
+              max: 1000
+              step: 0.1
+              mode: box
+
+    room_10_section:
+      name: Room 10
+      icon: mdi:floor-plan
+      collapsed: true
+      input:
+        room_10:
+          name: "Room 10: sensor"
+          description: Leave empty to skip this slot.
+          default:
+          selector:
+            entity:
+              filter:
+                - domain: sensor
+        weight_10:
+          name: "Room 10: weight"
+          description: Floor area (m²) or volume (m³). 0 excludes the room.
+          default: 0
+          selector:
+            number:
+              min: 0
+              max: 1000
+              step: 0.1
+              mode: box
+
+    room_11_section:
+      name: Room 11
+      icon: mdi:floor-plan
+      collapsed: true
+      input:
+        room_11:
+          name: "Room 11: sensor"
+          description: Leave empty to skip this slot.
+          default:
+          selector:
+            entity:
+              filter:
+                - domain: sensor
+        weight_11:
+          name: "Room 11: weight"
+          description: Floor area (m²) or volume (m³). 0 excludes the room.
+          default: 0
+          selector:
+            number:
+              min: 0
+              max: 1000
+              step: 0.1
+              mode: box
+
+    room_12_section:
+      name: Room 12
+      icon: mdi:floor-plan
+      collapsed: true
+      input:
+        room_12:
+          name: "Room 12: sensor"
+          description: Leave empty to skip this slot.
+          default:
+          selector:
+            entity:
+              filter:
+                - domain: sensor
+        weight_12:
+          name: "Room 12: weight"
+          description: Floor area (m²) or volume (m³). 0 excludes the room.
+          default: 0
+          selector:
+            number:
+              min: 0
+              max: 1000
+              step: 0.1
+              mode: box
+
+    room_13_section:
+      name: Room 13
+      icon: mdi:floor-plan
+      collapsed: true
+      input:
+        room_13:
+          name: "Room 13: sensor"
+          description: Leave empty to skip this slot.
+          default:
+          selector:
+            entity:
+              filter:
+                - domain: sensor
+        weight_13:
+          name: "Room 13: weight"
+          description: Floor area (m²) or volume (m³). 0 excludes the room.
+          default: 0
+          selector:
+            number:
+              min: 0
+              max: 1000
+              step: 0.1
+              mode: box
+
+    room_14_section:
+      name: Room 14
+      icon: mdi:floor-plan
+      collapsed: true
+      input:
+        room_14:
+          name: "Room 14: sensor"
+          description: Leave empty to skip this slot.
+          default:
+          selector:
+            entity:
+              filter:
+                - domain: sensor
+        weight_14:
+          name: "Room 14: weight"
+          description: Floor area (m²) or volume (m³). 0 excludes the room.
+          default: 0
+          selector:
+            number:
+              min: 0
+              max: 1000
+              step: 0.1
+              mode: box
+
+    room_15_section:
+      name: Room 15
+      icon: mdi:floor-plan
+      collapsed: true
+      input:
+        room_15:
+          name: "Room 15: sensor"
+          description: Leave empty to skip this slot.
+          default:
+          selector:
+            entity:
+              filter:
+                - domain: sensor
+        weight_15:
+          name: "Room 15: weight"
+          description: Floor area (m²) or volume (m³). 0 excludes the room.
+          default: 0
+          selector:
+            number:
+              min: 0
+              max: 1000
+              step: 0.1
+              mode: box
+
+    room_16_section:
+      name: Room 16
+      icon: mdi:floor-plan
+      collapsed: true
+      input:
+        room_16:
+          name: "Room 16: sensor"
+          description: Leave empty to skip this slot.
+          default:
+          selector:
+            entity:
+              filter:
+                - domain: sensor
+        weight_16:
+          name: "Room 16: weight"
+          description: Floor area (m²) or volume (m³). 0 excludes the room.
+          default: 0
+          selector:
+            number:
+              min: 0
+              max: 1000
+              step: 0.1
+              mode: box
+
+    room_17_section:
+      name: Room 17
+      icon: mdi:floor-plan
+      collapsed: true
+      input:
+        room_17:
+          name: "Room 17: sensor"
+          description: Leave empty to skip this slot.
+          default:
+          selector:
+            entity:
+              filter:
+                - domain: sensor
+        weight_17:
+          name: "Room 17: weight"
+          description: Floor area (m²) or volume (m³). 0 excludes the room.
+          default: 0
+          selector:
+            number:
+              min: 0
+              max: 1000
+              step: 0.1
+              mode: box
+
+    room_18_section:
+      name: Room 18
+      icon: mdi:floor-plan
+      collapsed: true
+      input:
+        room_18:
+          name: "Room 18: sensor"
+          description: Leave empty to skip this slot.
+          default:
+          selector:
+            entity:
+              filter:
+                - domain: sensor
+        weight_18:
+          name: "Room 18: weight"
+          description: Floor area (m²) or volume (m³). 0 excludes the room.
+          default: 0
+          selector:
+            number:
+              min: 0
+              max: 1000
+              step: 0.1
+              mode: box
+
+    room_19_section:
+      name: Room 19
+      icon: mdi:floor-plan
+      collapsed: true
+      input:
+        room_19:
+          name: "Room 19: sensor"
+          description: Leave empty to skip this slot.
+          default:
+          selector:
+            entity:
+              filter:
+                - domain: sensor
+        weight_19:
+          name: "Room 19: weight"
+          description: Floor area (m²) or volume (m³). 0 excludes the room.
+          default: 0
+          selector:
+            number:
+              min: 0
+              max: 1000
+              step: 0.1
+              mode: box
+
+    room_20_section:
+      name: Room 20
+      icon: mdi:floor-plan
+      collapsed: true
+      input:
+        room_20:
+          name: "Room 20: sensor"
+          description: Leave empty to skip this slot.
+          default:
+          selector:
+            entity:
+              filter:
+                - domain: sensor
+        weight_20:
+          name: "Room 20: weight"
+          description: Floor area (m²) or volume (m³). 0 excludes the room.
+          default: 0
+          selector:
+            number:
+              min: 0
+              max: 1000
+              step: 0.1
+              mode: box
+
+variables:
+  precision: !input precision
+  rooms:
+    - {e: !input room_1, w: !input weight_1}
+    - {e: !input room_2, w: !input weight_2}
+    - {e: !input room_3, w: !input weight_3}
+    - {e: !input room_4, w: !input weight_4}
+    - {e: !input room_5, w: !input weight_5}
+    - {e: !input room_6, w: !input weight_6}
+    - {e: !input room_7, w: !input weight_7}
+    - {e: !input room_8, w: !input weight_8}
+    - {e: !input room_9, w: !input weight_9}
+    - {e: !input room_10, w: !input weight_10}
+    - {e: !input room_11, w: !input weight_11}
+    - {e: !input room_12, w: !input weight_12}
+    - {e: !input room_13, w: !input weight_13}
+    - {e: !input room_14, w: !input weight_14}
+    - {e: !input room_15, w: !input weight_15}
+    - {e: !input room_16, w: !input weight_16}
+    - {e: !input room_17, w: !input weight_17}
+    - {e: !input room_18, w: !input weight_18}
+    - {e: !input room_19, w: !input weight_19}
+    - {e: !input room_20, w: !input weight_20}
+
+sensor:
+  unit_of_measurement: !input unit
+  device_class: !input device_class
+  state_class: measurement
+  availability: >
+    {%- set ns = namespace(ok=false) -%}
+    {%- for r in rooms if r.e not in [none, ''] and (r.w | float(0)) > 0 -%}
+      {%- if states(r.e) | is_number -%}{%- set ns.ok = true -%}{%- endif -%}
+    {%- endfor -%}
+    {{ ns.ok }}
+  state: >
+    {%- set ns = namespace(sum=0.0, wsum=0.0) -%}
+    {%- for r in rooms if r.e not in [none, ''] and (r.w | float(0)) > 0 -%}
+      {%- set v = states(r.e) -%}
+      {%- if v | is_number -%}
+        {%- set ns.sum = ns.sum + (v | float) * (r.w | float) -%}
+        {%- set ns.wsum = ns.wsum + (r.w | float) -%}
+      {%- endif -%}
+    {%- endfor -%}
+    {{ (ns.sum / ns.wsum) | round(precision | int(1)) if ns.wsum > 0 else none }}
