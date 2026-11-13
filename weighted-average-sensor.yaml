@@ -5,8 +5,10 @@ blueprint:
     a whole-home temperature (or humidity) where each room counts in
     proportion to its floor area or volume.
 
-    Per room: pick the source sensor and give it a weight (m² or m³). Empty
-    slots and rooms with weight 0 are ignored. Sources that are unavailable,
+    Per room: pick the source sensor and give it a weight (m² or m³) - either
+    an input_number helper (e.g. input_number.indoor_area_salon, editable in
+    the UI, changes apply live) or a plain number. Empty slots and rooms with
+    weight 0 are ignored. Sources that are unavailable,
     unknown or non-numeric are skipped at that moment, so one dead sensor does
     not break the average; the sensor becomes unavailable only when every
     weighted source is gone.
@@ -23,14 +25,14 @@ blueprint:
               unit: "°C"
               device_class: temperature
               room_1: sensor.salon_temperature
-              weight_1: 35
+              weight_1: input_number.indoor_area_salon
           name: "Dom – temperatura (średnia ważona)"
           unique_id: home_weighted_temperature
 
     Then reload Template entities (Developer tools -> YAML). Use it twice for
     temperature and humidity - two inputs sets, two outputs.
 
-    Version: 2026-09-13
+    Version: 2026-09-13.3
   domain: template
 
   input:
@@ -87,14 +89,15 @@ blueprint:
                 - domain: sensor
         weight_1:
           name: "Room 1: weight"
-          description: Floor area (m²) or volume (m³). 0 excludes the room.
+          description: >
+            An input_number helper holding the room's floor area (m²) or volume
+            (m³) - e.g. input_number.indoor_area_salon - or a plain number.
+            0 excludes the room.
           default: 0
           selector:
-            number:
-              min: 0
-              max: 1000
-              step: 0.1
-              mode: box
+            entity:
+              filter:
+                - domain: input_number
 
     room_2_section:
       name: Room 2
@@ -110,14 +113,15 @@ blueprint:
                 - domain: sensor
         weight_2:
           name: "Room 2: weight"
-          description: Floor area (m²) or volume (m³). 0 excludes the room.
+          description: >
+            An input_number helper holding the room's floor area (m²) or volume
+            (m³) - e.g. input_number.indoor_area_salon - or a plain number.
+            0 excludes the room.
           default: 0
           selector:
-            number:
-              min: 0
-              max: 1000
-              step: 0.1
-              mode: box
+            entity:
+              filter:
+                - domain: input_number
 
     room_3_section:
       name: Room 3
@@ -133,14 +137,15 @@ blueprint:
                 - domain: sensor
         weight_3:
           name: "Room 3: weight"
-          description: Floor area (m²) or volume (m³). 0 excludes the room.
+          description: >
+            An input_number helper holding the room's floor area (m²) or volume
+            (m³) - e.g. input_number.indoor_area_salon - or a plain number.
+            0 excludes the room.
           default: 0
           selector:
-            number:
-              min: 0
-              max: 1000
-              step: 0.1
-              mode: box
+            entity:
+              filter:
+                - domain: input_number
 
     room_4_section:
       name: Room 4
@@ -156,14 +161,15 @@ blueprint:
                 - domain: sensor
         weight_4:
           name: "Room 4: weight"
-          description: Floor area (m²) or volume (m³). 0 excludes the room.
+          description: >
+            An input_number helper holding the room's floor area (m²) or volume
+            (m³) - e.g. input_number.indoor_area_salon - or a plain number.
+            0 excludes the room.
           default: 0
           selector:
-            number:
-              min: 0
-              max: 1000
-              step: 0.1
-              mode: box
+            entity:
+              filter:
+                - domain: input_number
 
     room_5_section:
       name: Room 5
@@ -179,14 +185,15 @@ blueprint:
                 - domain: sensor
         weight_5:
           name: "Room 5: weight"
-          description: Floor area (m²) or volume (m³). 0 excludes the room.
+          description: >
+            An input_number helper holding the room's floor area (m²) or volume
+            (m³) - e.g. input_number.indoor_area_salon - or a plain number.
+            0 excludes the room.
           default: 0
           selector:
-            number:
-              min: 0
-              max: 1000
-              step: 0.1
-              mode: box
+            entity:
+              filter:
+                - domain: input_number
 
     room_6_section:
       name: Room 6
@@ -203,14 +210,15 @@ blueprint:
                 - domain: sensor
         weight_6:
           name: "Room 6: weight"
-          description: Floor area (m²) or volume (m³). 0 excludes the room.
+          description: >
+            An input_number helper holding the room's floor area (m²) or volume
+            (m³) - e.g. input_number.indoor_area_salon - or a plain number.
+            0 excludes the room.
           default: 0
           selector:
-            number:
-              min: 0
-              max: 1000
-              step: 0.1
-              mode: box
+            entity:
+              filter:
+                - domain: input_number
 
     room_7_section:
       name: Room 7
@@ -227,14 +235,15 @@ blueprint:
                 - domain: sensor
         weight_7:
           name: "Room 7: weight"
-          description: Floor area (m²) or volume (m³). 0 excludes the room.
+          description: >
+            An input_number helper holding the room's floor area (m²) or volume
+            (m³) - e.g. input_number.indoor_area_salon - or a plain number.
+            0 excludes the room.
           default: 0
           selector:
-            number:
-              min: 0
-              max: 1000
-              step: 0.1
-              mode: box
+            entity:
+              filter:
+                - domain: input_number
 
     room_8_section:
       name: Room 8
@@ -251,14 +260,15 @@ blueprint:
                 - domain: sensor
         weight_8:
           name: "Room 8: weight"
-          description: Floor area (m²) or volume (m³). 0 excludes the room.
+          description: >
+            An input_number helper holding the room's floor area (m²) or volume
+            (m³) - e.g. input_number.indoor_area_salon - or a plain number.
+            0 excludes the room.
           default: 0
           selector:
-            number:
-              min: 0
-              max: 1000
-              step: 0.1
-              mode: box
+            entity:
+              filter:
+                - domain: input_number
 
     room_9_section:
       name: Room 9
@@ -275,14 +285,15 @@ blueprint:
                 - domain: sensor
         weight_9:
           name: "Room 9: weight"
-          description: Floor area (m²) or volume (m³). 0 excludes the room.
+          description: >
+            An input_number helper holding the room's floor area (m²) or volume
+            (m³) - e.g. input_number.indoor_area_salon - or a plain number.
+            0 excludes the room.
           default: 0
           selector:
-            number:
-              min: 0
-              max: 1000
-              step: 0.1
-              mode: box
+            entity:
+              filter:
+                - domain: input_number
 
     room_10_section:
       name: Room 10
@@ -299,14 +310,15 @@ blueprint:
                 - domain: sensor
         weight_10:
           name: "Room 10: weight"
-          description: Floor area (m²) or volume (m³). 0 excludes the room.
+          description: >
+            An input_number helper holding the room's floor area (m²) or volume
+            (m³) - e.g. input_number.indoor_area_salon - or a plain number.
+            0 excludes the room.
           default: 0
           selector:
-            number:
-              min: 0
-              max: 1000
-              step: 0.1
-              mode: box
+            entity:
+              filter:
+                - domain: input_number
 
     room_11_section:
       name: Room 11
@@ -323,14 +335,15 @@ blueprint:
                 - domain: sensor
         weight_11:
           name: "Room 11: weight"
-          description: Floor area (m²) or volume (m³). 0 excludes the room.
+          description: >
+            An input_number helper holding the room's floor area (m²) or volume
+            (m³) - e.g. input_number.indoor_area_salon - or a plain number.
+            0 excludes the room.
           default: 0
           selector:
-            number:
-              min: 0
-              max: 1000
-              step: 0.1
-              mode: box
+            entity:
+              filter:
+                - domain: input_number
 
     room_12_section:
       name: Room 12
@@ -347,14 +360,15 @@ blueprint:
                 - domain: sensor
         weight_12:
           name: "Room 12: weight"
-          description: Floor area (m²) or volume (m³). 0 excludes the room.
+          description: >
+            An input_number helper holding the room's floor area (m²) or volume
+            (m³) - e.g. input_number.indoor_area_salon - or a plain number.
+            0 excludes the room.
           default: 0
           selector:
-            number:
-              min: 0
-              max: 1000
-              step: 0.1
-              mode: box
+            entity:
+              filter:
+                - domain: input_number
 
     room_13_section:
       name: Room 13
@@ -371,14 +385,15 @@ blueprint:
                 - domain: sensor
         weight_13:
           name: "Room 13: weight"
-          description: Floor area (m²) or volume (m³). 0 excludes the room.
+          description: >
+            An input_number helper holding the room's floor area (m²) or volume
+            (m³) - e.g. input_number.indoor_area_salon - or a plain number.
+            0 excludes the room.
           default: 0
           selector:
-            number:
-              min: 0
-              max: 1000
-              step: 0.1
-              mode: box
+            entity:
+              filter:
+                - domain: input_number
 
     room_14_section:
       name: Room 14
@@ -395,14 +410,15 @@ blueprint:
                 - domain: sensor
         weight_14:
           name: "Room 14: weight"
-          description: Floor area (m²) or volume (m³). 0 excludes the room.
+          description: >
+            An input_number helper holding the room's floor area (m²) or volume
+            (m³) - e.g. input_number.indoor_area_salon - or a plain number.
+            0 excludes the room.
           default: 0
           selector:
-            number:
-              min: 0
-              max: 1000
-              step: 0.1
-              mode: box
+            entity:
+              filter:
+                - domain: input_number
 
     room_15_section:
       name: Room 15
@@ -419,14 +435,15 @@ blueprint:
                 - domain: sensor
         weight_15:
           name: "Room 15: weight"
-          description: Floor area (m²) or volume (m³). 0 excludes the room.
+          description: >
+            An input_number helper holding the room's floor area (m²) or volume
+            (m³) - e.g. input_number.indoor_area_salon - or a plain number.
+            0 excludes the room.
           default: 0
           selector:
-            number:
-              min: 0
-              max: 1000
-              step: 0.1
-              mode: box
+            entity:
+              filter:
+                - domain: input_number
 
     room_16_section:
       name: Room 16
@@ -443,14 +460,15 @@ blueprint:
                 - domain: sensor
         weight_16:
           name: "Room 16: weight"
-          description: Floor area (m²) or volume (m³). 0 excludes the room.
+          description: >
+            An input_number helper holding the room's floor area (m²) or volume
+            (m³) - e.g. input_number.indoor_area_salon - or a plain number.
+            0 excludes the room.
           default: 0
           selector:
-            number:
-              min: 0
-              max: 1000
-              step: 0.1
-              mode: box
+            entity:
+              filter:
+                - domain: input_number
 
     room_17_section:
       name: Room 17
@@ -467,14 +485,15 @@ blueprint:
                 - domain: sensor
         weight_17:
           name: "Room 17: weight"
-          description: Floor area (m²) or volume (m³). 0 excludes the room.
+          description: >
+            An input_number helper holding the room's floor area (m²) or volume
+            (m³) - e.g. input_number.indoor_area_salon - or a plain number.
+            0 excludes the room.
           default: 0
           selector:
-            number:
-              min: 0
-              max: 1000
-              step: 0.1
-              mode: box
+            entity:
+              filter:
+                - domain: input_number
 
     room_18_section:
       name: Room 18
@@ -491,14 +510,15 @@ blueprint:
                 - domain: sensor
         weight_18:
           name: "Room 18: weight"
-          description: Floor area (m²) or volume (m³). 0 excludes the room.
+          description: >
+            An input_number helper holding the room's floor area (m²) or volume
+            (m³) - e.g. input_number.indoor_area_salon - or a plain number.
+            0 excludes the room.
           default: 0
           selector:
-            number:
-              min: 0
-              max: 1000
-              step: 0.1
-              mode: box
+            entity:
+              filter:
+                - domain: input_number
 
     room_19_section:
       name: Room 19
@@ -515,14 +535,15 @@ blueprint:
                 - domain: sensor
         weight_19:
           name: "Room 19: weight"
-          description: Floor area (m²) or volume (m³). 0 excludes the room.
+          description: >
+            An input_number helper holding the room's floor area (m²) or volume
+            (m³) - e.g. input_number.indoor_area_salon - or a plain number.
+            0 excludes the room.
           default: 0
           selector:
-            number:
-              min: 0
-              max: 1000
-              step: 0.1
-              mode: box
+            entity:
+              filter:
+                - domain: input_number
 
     room_20_section:
       name: Room 20
@@ -539,14 +560,15 @@ blueprint:
                 - domain: sensor
         weight_20:
           name: "Room 20: weight"
-          description: Floor area (m²) or volume (m³). 0 excludes the room.
+          description: >
+            An input_number helper holding the room's floor area (m²) or volume
+            (m³) - e.g. input_number.indoor_area_salon - or a plain number.
+            0 excludes the room.
           default: 0
           selector:
-            number:
-              min: 0
-              max: 1000
-              step: 0.1
-              mode: box
+            entity:
+              filter:
+                - domain: input_number
 
 variables:
   precision: !input precision
@@ -576,19 +598,42 @@ sensor:
   unit_of_measurement: !input unit
   device_class: !input device_class
   state_class: measurement
-  availability: >
-    {%- set ns = namespace(ok=false) -%}
-    {%- for r in rooms if r.e not in [none, ''] and (r.w | float(0)) > 0 -%}
-      {%- if states(r.e) | is_number -%}{%- set ns.ok = true -%}{%- endif -%}
-    {%- endfor -%}
-    {{ ns.ok }}
+  # Per room: if the sensor OR its weight helper is unavailable/unknown/non-numeric,
+  # that room contributes value 0 and weight 0 (i.e. it is excluded). The sensor
+  # itself never goes unavailable; with no usable room it reports "unknown".
   state: >
     {%- set ns = namespace(sum=0.0, wsum=0.0) -%}
-    {%- for r in rooms if r.e not in [none, ''] and (r.w | float(0)) > 0 -%}
+    {%- for r in rooms if r.e not in [none, ''] -%}
       {%- set v = states(r.e) -%}
-      {%- if v | is_number -%}
-        {%- set ns.sum = ns.sum + (v | float) * (r.w | float) -%}
-        {%- set ns.wsum = ns.wsum + (r.w | float) -%}
-      {%- endif -%}
+      {%- set w = (states(r.w) if (r.w is string and '.' in r.w) else r.w) -%}
+      {%- set ok = (v | is_number) and (w | is_number) and (w | float(0)) > 0 -%}
+      {%- set val = (v | float(0)) if ok else 0 -%}
+      {%- set wt = (w | float(0)) if ok else 0 -%}
+      {%- set ns.sum = ns.sum + val * wt -%}
+      {%- set ns.wsum = ns.wsum + wt -%}
     {%- endfor -%}
     {{ (ns.sum / ns.wsum) | round(precision | int(1)) if ns.wsum > 0 else none }}
+  attributes:
+    rooms_counted: >
+      {%- set ns = namespace(n=0) -%}
+      {%- for r in rooms if r.e not in [none, ''] -%}
+        {%- set w = (states(r.w) if (r.w is string and '.' in r.w) else r.w) -%}
+        {%- if (states(r.e) | is_number) and (w | is_number) and (w | float(0)) > 0 -%}{%- set ns.n = ns.n + 1 -%}{%- endif -%}
+      {%- endfor -%}
+      {{ ns.n }}
+    total_weight: >
+      {%- set ns = namespace(w=0.0) -%}
+      {%- for r in rooms if r.e not in [none, ''] -%}
+        {%- set w = (states(r.w) if (r.w is string and '.' in r.w) else r.w) -%}
+        {%- if (states(r.e) | is_number) and (w | is_number) and (w | float(0)) > 0 -%}{%- set ns.w = ns.w + (w | float) -%}{%- endif -%}
+      {%- endfor -%}
+      {{ ns.w | round(1) }}
+    excluded: >
+      {%- set ns = namespace(l=[]) -%}
+      {%- for r in rooms if r.e not in [none, ''] -%}
+        {%- set w = (states(r.w) if (r.w is string and '.' in r.w) else r.w) -%}
+        {%- if not ((states(r.e) | is_number) and (w | is_number) and (w | float(0)) > 0) -%}
+          {%- set ns.l = ns.l + [r.e ~ ' (sensor=' ~ states(r.e) ~ ', weight=' ~ w ~ ')'] -%}
+        {%- endif -%}
+      {%- endfor -%}
+      {{ ns.l }}

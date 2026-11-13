@@ -1,0 +1,163 @@
+blueprint:
+  name: Trigger an automation on state change
+  description: |
+    Run ONE automation when ANY of the listed entities changes state.
+
+    Handy for reusing an existing automation from more places without editing
+    its triggers: list the entities to watch, pick the automation, done.
+    Attribute-only changes (brightness, battery level, ...) are ignored.
+
+    Initial delay: the first state change starts a wait of "Initial delay"
+    seconds, after which the automation is triggered ONCE. Every other state
+    change during that wait (of the same or any other watched entity) is
+    skipped - it neither restarts the wait nor queues another trigger. Only
+    one run is in progress at a time; the first state change after it ends
+    starts a new wait. 0 = trigger right away.
+
+    The automation is started with `automation.trigger`, the same way as its
+    "Run actions" button:
+      - its own triggers are bypassed, and inside it `trigger` carries no data
+        (no trigger.entity_id / trigger.to_state), so its actions must not
+        rely on them;
+      - its conditions are skipped by default (see "Skip the automation's
+        conditions");
+      - Home Assistant would run it even while it is turned off - this
+        blueprint skips that case unless "Only when the automation is on" is
+        turned off (checked on the state change and again after the delay).
+
+    Loop guard (on by default): a change caused by the target automation
+    itself is ignored, so an automation that changes one of the watched
+    entities does not re-trigger itself forever. It relies on Home Assistant's
+    context tracking and covers the target's most recent run - a safety net,
+    not a reason to watch entities the target changes.
+
+    Version: 2026-11-13.1
+  domain: automation
+
+  input:
+    source_section:
+      name: Watched entities
+      icon: mdi:eye-outline
+      input:
+        entities:
+          name: Entities
+          description: >
+            Any number of entities, any domain. A state change of any of them
+            triggers the automation below.
+          selector:
+            entity:
+              multiple: true
+
+    target_section:
+      name: Automation to trigger
+      icon: mdi:robot-outline
+      input:
+        target_automation:
+          name: Automation
+          selector:
+            entity:
+              filter:
+                - domain: automation
+        initial_delay:
+          name: Initial delay
+          description: >
+            Seconds to wait between the first state change and triggering the
+            automation. State changes during the wait are skipped. 0 = trigger
+            right away.
+          default: 0
+          selector:
+            number:
+              min: 0
+              max: 3600
+              step: 1
+              unit_of_measurement: s
+              mode: box
+
+    options_section:
+      name: Options
+      icon: mdi:tune
+      collapsed: true
+      input:
+        ignore_unavailable:
+          name: Ignore unavailable / unknown
+          description: >
+            Skip changes to or from "unavailable" / "unknown" - e.g. a device
+            dropping off the network, or entities coming back after a Home
+            Assistant restart. Off = every state change counts.
+          default: false
+          selector:
+            boolean: {}
+        skip_conditions:
+          name: Skip the automation's conditions
+          description: >
+            On (default): the target's conditions are skipped and its actions
+            always run. Off: its conditions are checked first.
+          default: true
+          selector:
+            boolean: {}
+        only_when_on:
+          name: Only when the automation is on
+          description: >
+            Do nothing while the target automation is turned off.
+            (automation.trigger on its own would run a turned-off automation.)
+          default: true
+          selector:
+            boolean: {}
+        loop_guard:
+          name: Loop guard
+          description: >
+            Ignore a change caused by the target automation's own most recent
+            run, so it cannot re-trigger itself through a watched entity.
+          default: true
+          selector:
+            boolean: {}
+
+# One run at a time: state changes arriving while a run is waiting out the
+# initial delay (or triggering) are dropped silently.
+mode: single
+max_exceeded: silent
+
+trigger:
+  - platform: state
+    entity_id: !input entities
+    # null = any state change, but NOT attribute-only changes.
+    to: ~
+
+variables:
+  target_automation: !input target_automation
+  ignore_unavailable: !input ignore_unavailable
+  only_when_on: !input only_when_on
+  loop_guard: !input loop_guard
+
+condition:
+  # Ignore unavailable / unknown (an entity that was added or removed counts as
+  # unavailable on the missing side).
+  - condition: template
+    value_template: >
+      {%- set f = trigger.from_state.state if trigger.from_state is not none else 'unavailable' -%}
+      {%- set t = trigger.to_state.state if trigger.to_state is not none else 'unavailable' -%}
+      {{ not ignore_unavailable
+         or (f not in ['unavailable', 'unknown'] and t not in ['unavailable', 'unknown']) }}
+  # Only when the target automation is on.
+  - condition: template
+    value_template: "{{ not only_when_on or is_state(target_automation, 'on') }}"
+  # Loop guard: the target's state carries the context of its latest run, and
+  # every change that run makes carries the same context id.
+  - condition: template
+    value_template: >
+      {%- set target_ctx = expand(target_automation) | map(attribute='context.id') | list | first | default('') -%}
+      {{ not loop_guard
+         or trigger.to_state is none
+         or trigger.to_state.context.id != target_ctx }}
+
+action:
+  - delay:
+      seconds: !input initial_delay
+  # The target may have been turned off during the delay.
+  - condition: template
+    value_template: "{{ not only_when_on or is_state(target_automation, 'on') }}"
+  - service: automation.trigger
+    target:
+      entity_id: "{{ target_automation }}"
+    data:
+      skip_condition: !input skip_conditions
